@@ -1,0 +1,471 @@
+title,body,labels,assignees,milestone,state,state_reason,
+"[PROJ-SETUP-001] Init repo, structura de foldere si conventii Git","Create GitHub repository.
+Setup folder structure: /backend, /frontend, /docs.
+Implement branching strategy: feature/*, fix/*, chore/*.
+Acceptance Criteria:
+- Repository is accessible to all 8 team members.
+- .gitignore is configured for Java and Node.js.
+- Pull Request template is added.",infra;setup,,S1,open,,
+"[BE-SETUP-001] Init proiect Spring Boot (structura pachete, profiluri dev/test/prod)","Create Spring Boot application.
+Configure profiles: application-dev.yml, application-prod.yml.
+Implement layered packages: controller, service, repository, entity, dto.
+Acceptance Criteria:
+- Application starts successfully on local environment.
+- Profile specific properties are correctly loaded.",backend;setup,,S1,open,,
+[BE-SETUP-002] Conexiune PostgreSQL + migrari Flyway,"Create database connection config in application.yml.
+Inject dependency: spring-boot-starter-data-jpa, flyway-core, postgresql.
+Implement initial migration: V1__init_schema.sql.
+Acceptance Criteria:
+- Application connects successfully to PostgreSQL.
+- Flyway executes V1 migration at startup.",backend;database,,S1,open,,
+[BE-SETUP-003] Gestionare globala erori si validare (Exception Handler + Bean Validation),"Create GlobalExceptionHandler annotated with @ControllerAdvice.
+Implement handlers for: EntityNotFoundException, MethodArgumentNotValidException, IllegalStateException.
+Acceptance Criteria:
+- API returns standardized JSON error response (timestamp, status, error, message).
+- 400 Bad Request is returned for invalid DTOs.
+- 404 Not Found is returned for missing entities.",backend;setup,,S1,open,,
+[FE-SETUP-001] Init proiect React (Vite) + routing,"Create React Vite project.
+Implement routing: react-router-dom setup with basic layouts.
+Create structure: /pages, /components, /services, /hooks, /context.
+Acceptance Criteria:
+- React app runs locally.
+- Basic routes (/, /login, /dashboard) are accessible.",frontend;setup,,S1,open,,
+[FE-SETUP-002] Client HTTP (Axios) + interceptori JWT,"Create Axios instance: apiClient.
+Implement request interceptor: attach Authorization Bearer token.
+Implement response interceptor: catch 401 Unauthorized for logout/refresh.
+Acceptance Criteria:
+- All API calls use the centralized apiClient.
+- JWT token is automatically injected in headers if it exists in local storage/context.",frontend;setup,,S1,open,,
+"[FE-SETUP-003] Design system de baza (tema, tipografie, componente reutilizabile)","Create base UI components: Button, Input, Card, Modal.
+Implement CSS variables/Tailwind config for colors and typography.
+Acceptance Criteria:
+- Reusable components are available and typed (if using TS).
+- UI matches a clean, modern aesthetic suitable for medical software.
+- Responsive design variables are set.",frontend;design-system,,S1,open,,
+[FE-UX-002] Sistem de notificari UI non-blocante (toast-uri),"Create ToastContext and ToastContainer.
+Implement methods: + showSuccess(msg: string), + showError(msg: string).
+Acceptance Criteria:
+- Toasts appear without blocking UI interactions.
+- Native alert() and confirm() are completely avoided.
+- Toasts auto-dismiss after 3-5 seconds.",frontend;ux,,S1,open,,
+[DB-SCHEMA-001] Schema tabele Utilizatori & Roluri,"Create Flyway migration for Users and Roles.
+Implement tables: users (id, username, password, role_id), roles (id, name).
+Acceptance Criteria:
+- Tables are created in PostgreSQL.
+- Roles inserted by default: Administrator, Medic, Receptioner.
+- Foreign key constraints are valid.",database;auth,,S1,open,,
+"[DB-SCHEMA-002] Schema Medici, Cabinete, Echipamente","Create Flyway migration for clinical resources.
+Implement tables: doctors (specialty, schedule, standard_duration), rooms (name/number), equipment (name).
+Acceptance Criteria:
+- Tables are created with appropriate data types.
+- Doctor schedule allows JSONB or relation for flexible weekly hours.",database,,S1,open,,
+[DB-SCHEMA-003] Schema Servicii + relatie Servicii-Echipamente obligatorii,"Create Flyway migration for services.
+Implement tables: services (name, price, duration), service_required_equipment (service_id, equipment_id).
+Acceptance Criteria:
+- Services table created.
+- Many-to-many relationship mapping services to mandatory hardware is created.",database,,S1,open,,
+[DB-SCHEMA-004] Schema Pacienti (GDPR-ready),"Create Flyway migration for patients.
+Implement table: patients (id, first_name, last_name, cnp, dob, email, phone, allergies, medical_history).
+Acceptance Criteria:
+- Patient table created.
+- Sensitive columns (CNP) prepared for application-level encryption.",database;gdpr,,S2,open,,
+[DB-SCHEMA-005] Schema Programari (appointments) + stare,"Create Flyway migration for appointments.
+Implement table: appointments (id, patient_id, doctor_id, room_id, service_id, start_time, end_time, status).
+Acceptance Criteria:
+- Appointments table created with FKs to all resources.
+- Status column uses ENUM or VARCHAR for states (Scheduled, Confirmed, In Progress, Completed, No Show, Cancelled).",database;scheduling,,S2,open,,
+[DB-SCHEMA-006] Constrangeri DB anti-suprapunere (exclusion constraints),"Create Flyway migration for EXCLUDE USING gist constraints.
+Implement constraints preventing time-range overlaps for doctor_id, room_id, and equipment_id.
+Acceptance Criteria:
+- Database natively rejects inserts/updates if time ranges overlap for the same resource.
+- btree_gist extension is enabled.",database;scheduling;critical,,S2,open,,
+[DB-SCHEMA-007] Schema Fisa Consultatie,"Create Flyway migration for medical records.
+Implement table: consultation_records (id, appointment_id, presentation_motive, anamnesis, clinical_exam, diagnosis, prescription).
+Acceptance Criteria:
+- 1-to-1 relationship with appointments is established.
+- Columns support long text.",database,,S3,open,,
+[DB-SCHEMA-008] Schema Audit Log,"Create Flyway migration for audit_log.
+Implement table: audit_log (id, user_id, action, entity_name, entity_id, timestamp).
+Acceptance Criteria:
+- Append-only table is created.
+- DB roles restricted so no UPDATE/DELETE can be performed on this table.",database;security,,S3,open,,
+[DB-SCHEMA-009] Schema Notificari + coada retry,"Create Flyway migration for notifications.
+Implement table: notifications (id, recipient, type, status, retry_count, payload).
+Acceptance Criteria:
+- Notifications queue table is created.
+- Supports storing failed attempts for async retry.",database;notifications,,S4,open,,
+[BE-AUTH-001] Autentificare JWT (login + refresh token),"Create AuthService injecting UserRepository, PasswordEncoder, JwtUtil.
+Implement retrieval: + authenticate(AuthRequest): AuthResponse
+Implement logic: generate AccessToken & RefreshToken.
+Acceptance Criteria:
+- Valid credentials return 200 OK with JWT.
+- Invalid credentials return 401 Unauthorized.
+- Passwords are hashed with BCrypt.",backend;auth;security,,S1,open,,
+[BE-AUTH-002] Configurare Spring Security + roluri de baza,"Create SecurityConfig.
+Implement filter: JwtAuthenticationFilter.
+Implement endpoint protection: @PreAuthorize rules based on Role.
+Acceptance Criteria:
+- Endpoints are protected by default.
+- Authorities are successfully mapped from DB roles.",backend;auth;security,,S1,open,,
+[BE-AUTH-003] Criptare parole si politica de parole,"Create PasswordValidator class.
+Implement validation: check min length, uppercase, special char.
+Acceptance Criteria:
+- Account creation fails if password doesn't meet criteria.
+- Stored passwords are never plain text.",backend;security,,S1,open,,
+[FE-AUTH-001] Ecran Login/Logout + rute protejate pe rol,"Create LoginPage component.
+Implement PrivateRoute wrapper component.
+Acceptance Criteria:
+- Users can input credentials and receive token.
+- Unauthorized users are redirected to /login.
+- UI shows different menus based on User Role (Administrator/Medic/Receptioner).",frontend;auth,,S1,open,,
+"[FE-AUTH-002] Context autentificare (auto-refresh token, logout la expirare)","Create AuthContext.
+Implement logic: intercept 401, call /api/auth/refresh, retry failed request.
+Acceptance Criteria:
+- Token refresh happens transparently.
+- If refresh token expires, user is logged out and redirected to login.",frontend;auth,,S1,open,,
+[BE-RBAC-001] Restrictionare API fisa clinica pentru receptioner,"Create Method Security configs.
+Implement annotation: @PreAuthorize(""hasAnyRole('MEDIC', 'ADMIN')"") on ConsultationService.
+Acceptance Criteria:
+- Receptioner role receives 403 Forbidden when calling GET/POST on clinical data.
+- Medic can access the data.",backend;security;critical,,S3,open,,
+[BE-RBAC-002] Restrictionare API rapoarte financiare pentru medic,"Create Method Security configs.
+Implement annotation: @PreAuthorize(""hasRole('ADMIN')"") on ReportService for financial endpoints.
+Acceptance Criteria:
+- Medic role receives 403 Forbidden when calling GET on sales reports.
+- Administrator can view financial reports.",backend;security,,S3,open,,
+[QA-RBAC-001] Teste automate pentru restrictiile de rol,"Create Integration Test suite (MockMvc).
+Implement tests: verify 403 status for Receptioner on clinical API, verify 403 for Medic on financial API.
+Acceptance Criteria:
+- Tests run successfully and validate DoD #3.",qa;security,,S3,open,,
+[BE-RES-001] CRUD API Medici + orar saptamanal flexibil,"Create DoctorService and DoctorController.
+Implement methods: getAll, getById, create, update, delete.
+Acceptance Criteria:
+- CRUD operations work correctly.
+- Schedule is successfully saved and returned in DTO.",backend;resources,,S1,open,,
+[BE-RES-002] CRUD API Cabinete,"Create RoomService and RoomController.
+Implement methods: getAll, create, update, delete.
+Acceptance Criteria:
+- Room entities can be managed (name, number).",backend;resources,,S1,open,,
+[BE-RES-003] CRUD API Echipamente medicale,"Create EquipmentService and EquipmentController.
+Implement methods: getAll, create, update, delete.
+Acceptance Criteria:
+- Equipment entities can be managed.",backend;resources,,S1,open,,
+[BE-RES-004] CRUD API Servicii + asociere echipamente obligatorii,"Create ClinicalServiceService and Controller.
+Implement logic: save service details and associate required Equipment IDs.
+Acceptance Criteria:
+- Service is saved with correct price and default duration.
+- Required equipment relations are saved.",backend;resources,,S1,open,,
+[FE-RES-001] Ecran administrare Medici,"Create DoctorList and DoctorForm components.
+Implement integration with Doctor API.
+Acceptance Criteria:
+- Users can view a table of doctors.
+- Form allows setting weekly schedule matrix.",frontend;resources,,S1,open,,
+[FE-RES-002] Ecran administrare Cabinete,"Create RoomList and RoomForm components.
+Implement integration with Room API.
+Acceptance Criteria:
+- Users can view and manage rooms.",frontend;resources,,S1,open,,
+[FE-RES-003] Ecran administrare Echipamente,"Create EquipmentList and EquipmentForm components.
+Implement integration with Equipment API.
+Acceptance Criteria:
+- Users can view and manage equipment inventory.",frontend;resources,,S1,open,,
+[FE-RES-004] Ecran administrare Servicii + selector echipamente obligatorii,"Create ServiceList and ServiceForm components.
+Implement multi-select dropdown for assigning required equipment.
+Acceptance Criteria:
+- Form correctly sends payload with service details and associated equipment IDs.",frontend;resources,,S1,open,,
+[BE-PAT-001] CRUD API Pacienti,"Create PatientService and PatientController.
+Implement methods: search(keyword), create, update, getById.
+Acceptance Criteria:
+- Patient CRUD operations function properly.
+- Search works by Name, Phone, or CNP.",backend;patients,,S2,open,,
+[BE-PAT-002] Criptare CNP si date sensibile la nivel aplicatie,"Create AttributeConverter<String, String> for AES encryption.
+Implement annotation @Convert(converter = AesEncryptor.class) on Patient.cnp.
+Acceptance Criteria:
+- CNP is stored encrypted in the DB.
+- Application transparently decrypts it for authorized read responses.",backend;security;gdpr,,S2,open,,
+[FE-PAT-001] Ecran lista pacienti + cautare/filtrare,"Create PatientList component.
+Implement datatable with search bar and pagination.
+Acceptance Criteria:
+- Users can find patients quickly by typing in search bar.",frontend;patients,,S2,open,,
+[FE-PAT-002] Formular adaugare/editare pacient,"Create PatientForm component.
+Implement validation (CNP format, email format, required fields).
+Acceptance Criteria:
+- Form allows rapid creation of a new patient.
+- Proper validation errors are shown.",frontend;patients,,S2,open,,
+[BE-SCHED-001] Algoritm verificare disponibilitate - Medic,"Create AvailabilityValidatorService.
+Implement logic: checkDoctor(doctorId, startTime, endTime).
+Acceptance Criteria:
+- Queries DB for existing appointments for doctor in the time interval.
+- Returns conflict if overlap found.",backend;scheduling;critical,,S2,open,,
+[BE-SCHED-002] Algoritm verificare disponibilitate - Cabinet,"Create AvailabilityValidatorService.
+Implement logic: checkRoom(roomId, startTime, endTime).
+Acceptance Criteria:
+- Queries DB for existing appointments for room in the time interval.
+- Returns conflict if overlap found.",backend;scheduling;critical,,S2,open,,
+[BE-SCHED-003] Algoritm verificare disponibilitate - Echipament,"Create AvailabilityValidatorService.
+Implement logic: checkEquipmentRequirements(serviceId, startTime, endTime).
+Acceptance Criteria:
+- Determines required equipment for service.
+- Returns conflict if ANY required equipment is already booked in that interval.",backend;scheduling;critical,,S2,open,,
+[BE-SCHED-004] Endpoint combinat creare/editare programare + mesaj explicit de conflict,"Create AppointmentService and Controller.
+Implement method: createAppointment(AppointmentRequest).
+Implement orchestration of validators (Medic, Room, Equipment).
+Acceptance Criteria:
+- Fails with 409 Conflict if any resource overlaps.
+- Conflict message explicitly identifies the blocking resource (e.g., 'Cabinetul 3 este ocupat').",backend;scheduling;critical,,S2,open,,
+[BE-SCHED-005] Gestionare concurenta la rezervare (tranzactii + locking),"Refactor AppointmentService.
+Implement @Transactional with specific Isolation Level or pessimistic locking (SELECT FOR UPDATE).
+Acceptance Criteria:
+- Concurrent requests for the same slot are queued/processed sequentially.
+- Prevents race conditions from overriding availability checks.",backend;scheduling;critical,,S2,open,,
+"[QA-CONC-001] Teste de concurenta (2 receptioneri, aceeasi resursa)","Create concurrency test suite using ExecutorService or JMeter.
+Implement test firing 2 simultaneous requests for the same doctor/time slot.
+Acceptance Criteria:
+- One request succeeds (201/200).
+- The exact second request fails explicitly with 409 Conflict.",qa;scheduling;critical,,S2,open,,
+[FE-CAL-001] Componenta Calendar (vizualizare zi/saptamana),"Create CalendarComponent integrating a library (e.g., react-big-calendar).
+Implement views: Day, Week.
+Acceptance Criteria:
+- Calendar visually displays appointments.
+- Time blocks are sized appropriately.",frontend;calendar,,S2,open,,
+[FE-CAL-002] Filtrare calendar pe Medic / Cabinet,"Create CalendarFilter component.
+Implement state lifting to refetch calendar events based on DoctorId or RoomId.
+Acceptance Criteria:
+- User can toggle view to see only Dr. X's schedule or Room Y's usage.",frontend;calendar,,S2,open,,
+[FE-CAL-003] Creare programare prin click pe interval liber,"Implement onClick event on empty calendar slots.
+Implement modal trigger: AppointmentFormModal prefilled with date/time.
+Acceptance Criteria:
+- Clicking a slot opens form.
+- Creation flow is fast (under 2 windows, <30s).",frontend;calendar,,S2,open,,
+[FE-CAL-004] Afisare eroare de coliziune in UI (non-blocanta),"Implement error handling in AppointmentForm API call.
+Implement toast trigger on 409 response.
+Acceptance Criteria:
+- UI shows clear message indicating which resource blocked the booking.
+- Message is a non-blocking toast.",frontend;calendar;ux,,S2,open,,
+[BE-STATE-001] Enum si tranzitii valide pentru starea programarii,"Create AppointmentStatus ENUM (SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, NO_SHOW, CANCELLED).
+Implement StateMachine map/logic defining allowed transitions[cite: 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92].
+Acceptance Criteria:
+- ENUM reflects the required business states.
+- Transition rules are defined in code.",backend;state-machine,,S2,open,,
+[BE-STATE-002] Validare si blocare tranzitii invalide (API + DB),"Create AppointmentStateService.
+Implement method: changeStatus(appointmentId, newStatus).
+Acceptance Criteria:
+- Transitions not following diagram (e.g., SCHEDULED to COMPLETED directly) throw InvalidStateException.
+- API returns 400 Bad Request for invalid transitions.",backend;state-machine;critical,,S2,open,,
+[BE-STATE-003] Job automat marcare Neprezentat,"Create Scheduled task using @Scheduled.
+Implement logic: find CONFIRMED appointments where end_time < now(), update status to NO_SHOW.
+Acceptance Criteria:
+- Job runs periodically (e.g., every 15 mins).
+- Resources are automatically freed for no-shows.",backend;state-machine,,S2,open,,
+[FE-STATE-001] Actiuni schimbare stare din calendar (drag-and-drop/meniu contextual),"Implement context menu (right-click) on Calendar events.
+Implement API calls to trigger state transitions.
+Acceptance Criteria:
+- Receptionist can quickly change state (e.g., to CONFIRMED or CANCELLED) directly from calendar UI.",frontend;state-machine,,S2,open,,
+[BE-CONS-001] API Fisa Consultatie (creare conditionata de starea In Progress),"Create ConsultationRecordService and Controller.
+Implement logic: Validate parent Appointment status == IN_PROGRESS before allowing save.
+Acceptance Criteria:
+- Cannot save medical record if appointment is not Active.
+- Only the assigned doctor can edit it.",backend;medical-records,,S3,open,,
+[BE-CONS-002] Regula de imutabilitate a fisei la Finalizat,"Modify ConsultationRecordService.
+Implement logic: block UPDATE operations if Appointment status == COMPLETED.
+Acceptance Criteria:
+- Record becomes strictly read-only after finalization.
+- API throws exception if modification is attempted.",backend;medical-records;critical,,S3,open,,
+[FE-CONS-001] Ecran Fisa Consultatie,"Create MedicalRecordForm component.
+Implement fields: Motive, Anamnesis, Exam, Diagnosis, Prescription.
+Acceptance Criteria:
+- Form is editable if appointment is active.
+- Form converts to read-only mode if appointment is completed.",frontend;medical-records,,S3,open,,
+[BE-SEC-001] Audit Log - interceptare acces/modificare date medicale,"Create AuditLoggingAspect using Spring AOP (@Aspect).
+Implement Pointcuts on ConsultationController read/write methods.
+Acceptance Criteria:
+- Reading or writing medical records automatically inserts a row in audit_log.
+- Log includes User ID, Timestamp, Action, Patient ID.",backend;security,,S3,open,,
+[BE-SEC-002] Protejare audit log impotriva modificarii,"Configure DB Roles and application privileges.
+Implement restriction: App DB user has only INSERT/SELECT on audit_log.
+Acceptance Criteria:
+- No REST endpoint exists for DELETE/UPDATE on audit logs.
+- Database natively prevents modifications.",backend;security,,S3,open,,
+[FE-SEC-001] Ecran vizualizare Audit Log (doar Administrator),"Create AuditLogTable component.
+Implement datatable with filters (User, Date).
+Acceptance Criteria:
+- View is accessible only by Administrator.
+- Displays full history of medical data access.",frontend;security,,S3,open,,
+[BE-NOTIF-001] Serviciu trimitere Email,"Create EmailNotificationProvider.
+Implement integration: JavaMailSender or SendGrid API.
+Acceptance Criteria:
+- Can successfully send a formatted email template to a target address.",backend;notifications,,S4,open,,
+[BE-NOTIF-002] Serviciu trimitere SMS,"Create SmsNotificationProvider.
+Implement integration: Twilio or similar API.
+Acceptance Criteria:
+- Can successfully dispatch SMS message to patient phone number.",backend;notifications,,S4,open,,
+[BE-NOTIF-003] Trimitere asincrona non-blocanta,"Create NotificationDispatcher service.
+Implement @Async annotations and thread pool config for dispatcher methods.
+Acceptance Criteria:
+- Main UI request returns immediately.
+- Notification dispatch runs on background thread.",backend;notifications,,S4,open,,
+[BE-NOTIF-004] Trigger notificare confirmare la creare programare,"Implement logic in AppointmentService.createAppointment.
+Implement trigger: emit Event to NotificationDispatcher on success.
+Acceptance Criteria:
+- Patient receives email with Date/Time/Doctor/Room details automatically upon creation.",backend;notifications,,S4,open,,
+[BE-NOTIF-005] Job reminder 24h + link unic confirmare/anulare,"Create @Scheduled task for 24h reminders.
+Implement logic: find appointments starting exactly in 24h, generate unique hash link, trigger dispatch.
+Acceptance Criteria:
+- Reminder is sent accurately 24h prior.
+- Contains link for self-service confirm/cancel.",backend;notifications,,S4,open,,
+[BE-NOTIF-006] Trigger notificare instant la modificare/anulare de clinica,"Implement logic in AppointmentService.update/cancel.
+Implement trigger: send instant update notification.
+Acceptance Criteria:
+- Patient is notified immediately if clinic reschedules/cancels the visit.",backend;notifications,,S4,open,,
+[BE-NOTIF-007] Mecanism retry pentru notificari esuate,"Create @Scheduled retry job.
+Implement logic: select notifications where status='FAILED' and retry_count < MAX, attempt dispatch.
+Acceptance Criteria:
+- Transient failures (API down) don't lose messages.
+- System retries automatically.",backend;notifications;critical,,S4,open,,
+[FE-NOTIF-001] Pagina publica confirmare/anulare programare,"Create PublicActionPage component (outside PrivateRoute).
+Implement logic: decode token from URL, show confirm/cancel buttons, hit API.
+Acceptance Criteria:
+- Patient can confirm or cancel without needing an account login.",frontend;notifications,,S4,open,,
+[BE-REPORT-001] API Raport Rata Ocupare Resurse,"Create ReportService.
+Implement calculation: scheduled hours / total working hours * 100.
+Acceptance Criteria:
+- Returns accurate percentage grouped by Doctor or Room for a given date range.",backend;reports,,S4,open,,
+[BE-REPORT-002] API Raport No-Show,"Create ReportService method.
+Implement logic: group by Patient/Time identifying highest NO_SHOW counts.
+Acceptance Criteria:
+- Returns list of top offenders or problematic timeframes.",backend;reports,,S4,open,,
+[BE-REPORT-003] API Raport Vanzari,"Create ReportService method.
+Implement logic: sum of Service Prices for COMPLETED appointments in range.
+Acceptance Criteria:
+- Returns gross revenue broken down by Service and Doctor.
+- Endpoint strictly secured for Administrator.",backend;reports,,S4,open,,
+[BE-REPORT-004] Export rapoarte PDF,"Create PdfExportService (using iText or Apache PDFBox).
+Implement generation: convert report JSON/HTML to downloadable PDF.
+Acceptance Criteria:
+- Generates a visually structured PDF ready for printing.",backend;reports;export,,S4,open,,
+[BE-REPORT-005] Export rapoarte Excel (.xlsx),"Create ExcelExportService (using Apache POI).
+Implement generation: write report data to .xlsx sheets.
+Acceptance Criteria:
+- Output is a valid Excel file.
+- Numerical values are exported as Native Excel Numbers (not text strings).",backend;reports;export,,S4,open,,
+[FE-REPORT-001] Ecran Rapoarte (selectie interval + tip + grafice),"Create ReportDashboard component.
+Implement charts integration (e.g., Chart.js / Recharts).
+Acceptance Criteria:
+- Administrator can select date ranges and report types.
+- Data renders correctly in bar/line charts.",frontend;reports,,S4,open,,
+[FE-REPORT-002] Butoane export PDF/Excel din UI,"Add Export buttons to ReportDashboard.
+Implement blob download handling from backend.
+Acceptance Criteria:
+- Clicking Export triggers file download successfully.",frontend;reports,,S4,open,,
+[BE-PERF-001] Sincronizare live calendar (WebSocket/STOMP sau SSE),"Create WebSocketConfig / SSE endpoint.
+Implement broadcast channel: publish appointment state changes.
+Acceptance Criteria:
+- Server pushes status updates to connected clients immediately upon DB change.",backend;realtime,,S4,open,,
+[FE-PERF-001] Integrare client WebSocket/SSE in Calendar,"Implement WebSocket client / EventSource in React.
+Implement state update: merge incoming socket payload into calendar state.
+Acceptance Criteria:
+- Changes made by user A appear on user B's screen instantly without full reload.",frontend;realtime,,S4,open,,
+[BE-PERF-002] Optimizare interogari (indecsi) pentru calendar si rapoarte,"Create Flyway migration for DB indices.
+Implement indices on doctor_id, room_id, date.
+Acceptance Criteria:
+- Query execution plans show index usage for common calendar filters.",backend;performance,,S4,open,,
+[FE-UX-001] Design responsive Desktop/Tableta pentru toate ecranele,"Implement responsive CSS media queries.
+Test across standard Desktop and Tablet resolutions.
+Acceptance Criteria:
+- Interface looks good and functions well on Desktop.
+- Interface is usable via touch on Tablets (for doctors in clinic).",frontend;ux,,S4,open,,
+[FE-UX-003] Optimizare flux adaugare pacient + programare,"Refactor booking flow UI.
+Implement integrated modal preventing excessive window switching.
+Acceptance Criteria:
+- Creating a new patient and booking an appointment requires <= 2 successive windows.
+- Can be done by a trained user in < 30s.",frontend;ux,,S4,open,,
+[QA-INT-001] Teste integrare algoritm coliziune (toate cele 3 resurse),"Create specific test suite for collisions.
+Implement scenarios: medic overlap, room overlap, equipment overlap.
+Acceptance Criteria:
+- Tests prove it's impossible to double-book any of the 3 resources.",qa;scheduling,,S5,open,,
+[QA-INT-002] Teste integrare masina de stari,"Create API Integration Tests.
+Implement tests trying invalid state jumps (e.g., Anulat -> Confirmat).
+Acceptance Criteria:
+- Verifies system strictly rejects invalid transitions at API level.",qa;state-machine,,S5,open,,
+[QA-E2E-001] Test end-to-end flux complet,"Create E2E tests (Cypress/Selenium).
+Implement full flow: Create Patient -> Book -> Confirm -> In Progress -> Complete Record.
+Acceptance Criteria:
+- Automated browser successfully runs through the happy path.
+- Asserts that record is immutable at the end.",qa;e2e,,S5,open,,
+[DOC-API-001] Documentatie API (OpenAPI/Swagger),"Inject springdoc-openapi-starter-webmvc-ui dependency.
+Implement @Operation annotations on key controllers.
+Acceptance Criteria:
+- Swagger UI is accessible at /swagger-ui.html.
+- Payloads and endpoints are documented.",docs,,S5,open,,
+[DOC-ARCH-001] Documentatie tehnica arhitectura & ghid deployment,"Create ARCHITECTURE.md.
+Document system overview, scheduling algorithm, and build commands.
+Acceptance Criteria:
+- A new developer can read the doc and understand the core mechanics.",docs,,S5,open,,
+[DOC-USER-001] Manual utilizator (Administrator/Medic/Receptioner),"Create User_Manual.pdf.
+Document flows specific to Roles.
+Acceptance Criteria:
+- Covers resource management, scheduling, records, and reports.",docs,,S5,open,,
+[NTH-FE-001] Mod intunecat (Dark Mode),"Create ThemeContext.
+Implement CSS variable toggling (Light/Dark).
+Acceptance Criteria:
+- User can toggle theme.
+- Preference is saved in localStorage.",nice-to-have;ux,,Backlog,open,,
+[NTH-FE-002] Localizare multi-limba (RO/EN),"Integrate react-i18next.
+Implement translation JSONs (RO, EN).
+Acceptance Criteria:
+- App interface can switch between Romanian and English.",nice-to-have,,Backlog,open,,
+[NTH-BE-001] Sincronizare cu Google Calendar,"Create GoogleCalendarIntegrationService.
+Implement OAuth2 flow and Calendar API pushes.
+Acceptance Criteria:
+- Doctor schedules are pushed to their personal G-Calendar.",nice-to-have;integration,,Backlog,open,,
+[NTH-BE-002] Notificari push in browser,"Integrate Web Push protocol API in backend.
+Implement service worker on frontend to catch pushes.
+Acceptance Criteria:
+- Receptionist receives browser push when a patient confirms via link.",nice-to-have;notifications,,Backlog,open,,
+[NTH-FE-003] Lista de asteptare (Waitlist),"Create Waitlist entity and logic.
+Implement UI to add patient to waitlist for a specific date.
+Acceptance Criteria:
+- System alerts receptionist if a slot frees up.",nice-to-have;scheduling,,Backlog,open,,
+[NTH-BE-003] Auto-sugestie sloturi alternative la coliziune,"Modify AvailabilityValidatorService.
+Implement logic to find next available slot if conflict occurs.
+Acceptance Criteria:
+- Instead of just 409 Conflict, returns suggested alternative times.",nice-to-have;scheduling,,Backlog,open,,
+[NTH-FE-004] Dashboard analitic avansat (KPI-uri clinica),"Create AdvancedDashboard view.
+Implement complex trend charts (monthly revenue vs utilization).
+Acceptance Criteria:
+- Displays long-term trend data clearly.",nice-to-have;reports,,Backlog,open,,
+[NTH-BE-004] Export CSV brut al rapoartelor,"Create CsvExportService.
+Implement conversion of report data to comma-separated format.
+Acceptance Criteria:
+- Generates raw CSV for data processing tools.",nice-to-have;reports,,Backlog,open,,
+[NTH-FE-005] Preferinte notificari per utilizator,"Add fields to Patient DB model (prefers_email, prefers_sms).
+Implement logic in NotificationDispatcher to check prefs.
+Acceptance Criteria:
+- Patient only receives messages on preferred channels.",nice-to-have;notifications,,Backlog,open,,
+[NTH-BE-005] Rate limiting si protectie brute-force login,"Create RateLimitFilter (e.g. using Bucket4j).
+Implement restriction on /api/auth/login.
+Acceptance Criteria:
+- IP is temporarily blocked after X failed login attempts.",nice-to-have;security,,Backlog,open,,
+[NTH-FE-006] Portal self-service pacient (auto-programare online),"Create PublicBookingFlow UI.
+Implement integration with scheduler API.
+Acceptance Criteria:
+- Patient can book themselves following strict availability rules.",nice-to-have;scheduling,,Backlog,open,,
+[NTH-BE-006] Autentificare cu 2 factori (2FA) pentru Administrator,"Integrate TOTP (Time-Based One-Time Password).
+Implement extra validation step at login for Admin role.
+Acceptance Criteria:
+- Admin cannot access system without code from Authenticator App.",nice-to-have;security,,Backlog,open,,
+[NTH-FE-007] Audit accesibilitate (WCAG AA) si remediere,"Run Lighthouse / Axe accessibility tools.
+Implement fixes (contrast, aria-labels).
+Acceptance Criteria:
+- Passes WCAG AA automated checks.",nice-to-have;accessibility,,Backlog,open,,
+[NTH-BE-007] Cache (Redis) pentru rapoarte frecvent accesate,"Inject Spring Cache and Redis integration.
+Implement @Cacheable on heavy Report endpoints.
+Acceptance Criteria:
+- Reports return instantly from cache if data hasn't changed.",nice-to-have;performance,,Backlog,open,,
+[NTH-BE-008] Istoric versiuni fisa medicala (inainte de finalizare),"Create Entity Listener / Versioning table.
+Implement tracking of draft changes to Consultation Record.
+Acceptance Criteria:
+- Admins can view previous versions of clinical notes before completion.",nice-to-have;medical-records,,Backlog,open,,
+[NTH-FE-008] Mod tiparire optimizat pentru fisa de consultatie,"Create print.css layout.
+Implement styling to hide navbars and optimize text for paper.
+Acceptance Criteria:
+- Ctrl+P on completed record yields clean, professional document.",nice-to-have;ux,,Backlog,open,,
