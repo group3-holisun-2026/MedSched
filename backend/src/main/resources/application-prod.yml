@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    # Linia de mai jos preia direct din secretul de mediu
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate # În producție doar validăm structura, nu modificăm tabelele direct
+    show-sql: false
