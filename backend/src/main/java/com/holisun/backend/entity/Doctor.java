@@ -1,34 +1,38 @@
 package com.holisun.backend.entity;
 
-import com.holisun.backend.embeddables.WorkingHours;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name="doctors")
+@Table(name = "doctors")
 @Getter
 @Setter
 @NoArgsConstructor
 public class Doctor {
+
     @Id
-    @GeneratedValue(strategy= GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @OneToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @Column(name = "speciality", nullable = false, length = 100)
-    private String speciality;
+    @Column(name = "specialization", nullable = false, length = 150)
+    private String specialization;
 
-    @Column(name = "standard_consultation_duration_minutes", nullable = false)
-    private Integer standardConsultationDurationMinutes;
+    @Column(name = "standard_appointment_duration_minutes", nullable = false)
+    private Integer standardAppointmentDurationMinutes;
 
-    @ElementCollection
-    private List<WorkingHours> weeklySchedule;
+    @Column(name = "active", nullable = false)
+    private Boolean active = true;
+
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<WorkSchedule> weeklySchedule = new ArrayList<>();
 }
