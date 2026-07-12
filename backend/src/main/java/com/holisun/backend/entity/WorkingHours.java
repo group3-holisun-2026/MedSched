@@ -1,7 +1,6 @@
-package com.holisun.backend.embeddables;
+package com.holisun.backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -9,11 +8,16 @@ import lombok.Setter;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 
-@Embeddable
-@Getter
+@Entity
+@Table(name = "working_hours")
 @Setter
+@Getter
 @NoArgsConstructor
 public class WorkingHours {
+    @Id
+    @GeneratedValue(strategy= GenerationType.UUID)
+    private Long id;
+
     @Column(name = "day_of_week", nullable = false)
     private DayOfWeek dayOfWeek;
 

@@ -1,10 +1,11 @@
 package com.holisun.backend.entity;
 
-import com.holisun.backend.embeddables.WorkingHours;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +30,7 @@ public class Doctor {
     @Column(name = "standard_consultation_duration_minutes", nullable = false)
     private Integer standardConsultationDurationMinutes;
 
-    @ElementCollection
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "weekly_schedule", columnDefinition = "jsonb")
     private List<WorkingHours> weeklySchedule;
 }
