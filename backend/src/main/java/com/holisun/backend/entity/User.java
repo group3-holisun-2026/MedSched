@@ -1,6 +1,6 @@
 package com.holisun.backend.entity;
 
-import com.holisun.backend.enums.Role;
+import com.holisun.backend.enums.*;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
