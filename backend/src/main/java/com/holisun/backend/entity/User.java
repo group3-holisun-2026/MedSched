@@ -21,11 +21,11 @@ public class User {
     @Column(name = "username", nullable = false, unique = true, length = 100)
     private String username;
 
+    @Column(name = "password_hash", nullable = false, length = 255)
+    private String passwordHash;
+
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
-
-    @Column(name = "password", nullable = false, length = 255)
-    private String password;
 
     @Column(name = "phone", length = 20)
     private String phone;
