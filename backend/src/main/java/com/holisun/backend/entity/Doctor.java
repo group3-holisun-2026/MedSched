@@ -26,6 +26,9 @@ public class Doctor {
     @Column(name = "speciality", nullable = false, length = 100)
     private String speciality;
 
+    @Column(name = "contact_info", length = 255)
+    private String contactInfo;
+
     @Column(name = "standard_consultation_duration_minutes", nullable = false)
     private Integer standardConsultationDurationMinutes;
 
