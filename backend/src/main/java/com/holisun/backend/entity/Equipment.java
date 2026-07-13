@@ -13,10 +13,14 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 public class Equipment {
+
     @Id
-    @GeneratedValue(strategy= GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
+
+    @Column(name = "active", nullable = false)
+    private boolean active = true;
 }
