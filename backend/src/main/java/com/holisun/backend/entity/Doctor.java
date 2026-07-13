@@ -19,8 +19,8 @@ public class Doctor {
     @GeneratedValue(strategy= GenerationType.UUID)
     private UUID id;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
     private User user;
 
     @Column(name = "speciality", nullable = false, length = 100)
@@ -30,5 +30,9 @@ public class Doctor {
     private Integer standardConsultationDurationMinutes;
 
     @ElementCollection
+    @CollectionTable(
+            name = "doctor_weekly_schedule",
+            joinColumns = @JoinColumn(name = "doctor_id")
+    )
     private List<WorkingHours> weeklySchedule;
 }
