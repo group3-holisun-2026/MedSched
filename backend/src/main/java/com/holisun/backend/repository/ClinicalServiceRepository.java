@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ClinicalServiceRepository extends JpaRepository<Service, UUID> {
-    List<Service> findByName(String name);
+    List<Service> findByName(String name); //for future use, if needed
 }
