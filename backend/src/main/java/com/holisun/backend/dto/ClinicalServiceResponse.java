@@ -1,6 +1,5 @@
 package com.holisun.backend.dto;
 
-import com.holisun.backend.entity.EquipmentType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,7 +16,7 @@ public class ClinicalServiceResponse {
     private String name;
     private BigDecimal price;
     private Integer defaultDurationMinutes;
-    private Set<EquipmentType> requiredEquipmentTypes;
+    private Set<EquipmentResponse> requiredEquipmentTypes;
 
     private Boolean active;
 }
