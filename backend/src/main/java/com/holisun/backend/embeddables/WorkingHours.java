@@ -15,7 +15,7 @@ import java.time.LocalTime;
 @NoArgsConstructor
 public class WorkingHours {
     @Column(name = "day_of_week", nullable = false)
-    private DayOfWeek dayOfWeek;
+    private short dayOfWeek;
 
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
