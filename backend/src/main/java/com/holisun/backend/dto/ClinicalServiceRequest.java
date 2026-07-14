@@ -24,7 +24,7 @@ public class ClinicalServiceRequest {
     @Positive
     private Integer defaultDurationMinutes;
 
-    @NotEmpty
+    @NotNull
     private List<UUID> requiredEquipmentTypeIds;
 
     private Boolean active; //unsure about this
