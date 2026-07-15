@@ -8,22 +8,19 @@ import lombok.Setter;
 import java.util.UUID;
 
 @Entity
-@Table(name = "rooms")
+@Table(name = "equipment_types")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Room {
+public class EquipmentType {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "name", nullable = false, unique = true, length = 100)
-    private String name;
+    private String name; // e.g. "4D Doppler Ultrasound"
 
     @Column(name = "description", length = 255)
     private String description;
-
-    @Column(name = "active", nullable = false)
-    private Boolean active = true;
 }
