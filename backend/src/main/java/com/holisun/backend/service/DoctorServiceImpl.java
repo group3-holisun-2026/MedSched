@@ -24,6 +24,7 @@ public class DoctorServiceImpl implements DoctorService {
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
     private final DoctorMapper doctorMapper;
+    private final WorkScheduleValidator workScheduleValidator;
 
     @Override
     @Transactional
@@ -37,6 +38,7 @@ public class DoctorServiceImpl implements DoctorService {
             throw new IllegalStateException("Acest utilizator este deja înregistrat ca doctor!");
         }
 
+        workScheduleValidator.validateNoOverlaps(dto.schedule());
 
         Doctor doctor = doctorMapper.toEntity(dto);
 
@@ -56,6 +58,7 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Doctorul cu ID-ul " + id + " nu a fost găsit!"));
 
+        workScheduleValidator.validateNoOverlaps(dto.schedule());
 
         doctorMapper.updateEntityFromDto(dto, doctor);
 

@@ -5,6 +5,7 @@ import com.holisun.backend.dto.EquipmentResponse;
 import com.holisun.backend.entity.Equipment;
 import com.holisun.backend.entity.EquipmentType;
 import com.holisun.backend.entity.Room;
+import com.holisun.backend.mapper.EquipmentMapper;
 import com.holisun.backend.repository.EquipmentRepository;
 import com.holisun.backend.repository.EquipmentTypeRepository;
 import com.holisun.backend.repository.RoomRepository;
@@ -23,6 +24,7 @@ public class EquipmentService {
     private final EquipmentRepository equipmentRepository;
     private final EquipmentTypeRepository equipmentTypeRepository;
     private final RoomRepository roomRepository;
+    private final EquipmentMapper equipmentMapper;
 
     public EquipmentResponse create(EquipmentRequest dto) {
         if (equipmentRepository.existsByName(dto.getName())) {
@@ -39,7 +41,7 @@ public class EquipmentService {
         equipment.setActive(true);
 
         Equipment saved = equipmentRepository.save(equipment);
-        return toResponse(saved);
+        return equipmentMapper.toResponse(saved);
     }
 
     public EquipmentResponse update(UUID id, EquipmentRequest dto) {
@@ -54,19 +56,19 @@ public class EquipmentService {
         equipment.setRoom(resolveRoom(dto.getRoomId()));
 
         Equipment saved = equipmentRepository.save(equipment);
-        return toResponse(saved);
+        return equipmentMapper.toResponse(saved);
     }
 
     public EquipmentResponse getById(UUID id) {
         Equipment equipment = equipmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Equipment not found"));
-        return toResponse(equipment);
+        return equipmentMapper.toResponse(equipment);
     }
 
     public List<EquipmentResponse> getAll() {
         return equipmentRepository.findAll()
                 .stream()
-                .map(this::toResponse)
+                .map(equipmentMapper::toResponse)
                 .toList();
     }
 
@@ -83,13 +85,5 @@ public class EquipmentService {
         }
         return roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
-    }
-
-    private EquipmentResponse toResponse(Equipment equipment) {
-        return new EquipmentResponse(
-                equipment.getId(),
-                equipment.getName(),
-                equipment.getActive()
-        );
     }
 }
