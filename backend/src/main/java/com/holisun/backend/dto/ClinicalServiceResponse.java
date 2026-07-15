@@ -16,7 +16,7 @@ public class ClinicalServiceResponse {
     private String name;
     private BigDecimal price;
     private Integer defaultDurationMinutes;
-    private Set<EquipmentResponse> requiredEquipmentTypes;
+    private Set<EquipmentTypeResponse> requiredEquipmentTypes;
 
     private Boolean active;
 }
