@@ -1,8 +1,8 @@
-package backend.controller;
+package com.holisun.backend.controller;
 
-import backend.dto.ClinicalServiceRequest;
-import backend.dto.ClinicalServiceResponse;
-import backend.service.ClinicalServiceService;
+import com.holisun.backend.dto.ClinicalServiceRequest;
+import com.holisun.backend.dto.ClinicalServiceResponse;
+import com.holisun.backend.service.ClinicalServiceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -1,5 +1,7 @@
 package com.holisun.backend.controller;
 
+import com.holisun.backend.dto.EquipmentRequest;
+import com.holisun.backend.dto.EquipmentResponse;
 import com.holisun.backend.service.EquipmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,12 +34,12 @@ public class EquipmentController {
             @PathVariable UUID id,
             @Valid @RequestBody EquipmentRequest dto
             ){
-        return ResponseEntity.ok(equipmentService.update(id, dto);
+        return ResponseEntity.ok(equipmentService.update(id, dto));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<EquipmentResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(equipmentService.getById(id);
+        return ResponseEntity.ok(equipmentService.getById(id));
     }
 
     @GetMapping

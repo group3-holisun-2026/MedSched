@@ -1,5 +1,7 @@
 package com.holisun.backend.controller;
 
+import com.holisun.backend.dto.RoomRequest;
+import com.holisun.backend.dto.RoomResponse;
 import com.holisun.backend.service.RoomService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -7,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -30,7 +33,7 @@ public class RoomController {
     @PutMapping("/{id}")
     public ResponseEntity<RoomResponse> update(
             @PathVariable UUID id,
-            @Valid @RequestBody ROomRequest dto
+            @Valid @RequestBody RoomRequest dto
     ){
         return ResponseEntity.ok(roomService.update(id,dto));
     }

@@ -2,6 +2,7 @@ package com.holisun.backend.controller;
 
 import com.holisun.backend.dto.DoctorCreateRequest;
 import com.holisun.backend.dto.DoctorResponse;
+import com.holisun.backend.dto.DoctorUpdateRequest;
 import com.holisun.backend.service.DoctorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class DoctorController {
     @PutMapping("/{id}")
     public ResponseEntity<DoctorResponse> update(
             @PathVariable UUID id,
-            @Valid @RequestBody DoctorUpdateResponse dto
+            @Valid @RequestBody DoctorUpdateRequest dto
             ) {
         return ResponseEntity.ok(doctorService.update(id, dto));
     }

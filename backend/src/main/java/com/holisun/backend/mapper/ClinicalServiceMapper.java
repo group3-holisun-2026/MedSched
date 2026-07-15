@@ -6,11 +6,10 @@ import com.holisun.backend.entity.Service;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "Spring", uses = EquipmentMapper.class)
+@Mapper(componentModel = "spring", uses = EquipmentMapper.class)
 public abstract class ClinicalServiceMapper {
     @Mapping(target = "requiredEquipmentTypes", ignore = true)
     public abstract Service dtoToClinicalService(ClinicalServiceRequest dto);
 
     public abstract ClinicalServiceResponse clinicalServiceToDto(Service clinicalService);
-
 }

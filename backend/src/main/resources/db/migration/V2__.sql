@@ -26,19 +26,6 @@ CREATE TABLE equipments
     CONSTRAINT pk_equipments PRIMARY KEY (id)
 );
 
-CREATE TABLE revchanges
-(
-    rev        BIGINT NOT NULL,
-    entityname VARCHAR(255)
-);
-
-CREATE TABLE revinfo
-(
-    rev      BIGINT NOT NULL,
-    revtstmp BIGINT,
-    CONSTRAINT pk_revinfo PRIMARY KEY (rev)
-);
-
 CREATE TABLE rooms
 (
     id   UUID         NOT NULL,
@@ -46,30 +33,11 @@ CREATE TABLE rooms
     CONSTRAINT pk_rooms PRIMARY KEY (id)
 );
 
-CREATE TABLE users
-(
-    id       UUID         NOT NULL,
-    username VARCHAR(100) NOT NULL,
-    email    VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    phone    VARCHAR(20),
-    city     VARCHAR(100),
-    role     VARCHAR(255) NOT NULL,
-    enabled  BOOLEAN,
-    CONSTRAINT pk_users PRIMARY KEY (id)
-);
-
 ALTER TABLE doctors
     ADD CONSTRAINT uc_doctors_user UNIQUE (user_id);
 
 ALTER TABLE rooms
     ADD CONSTRAINT uc_rooms_name UNIQUE (name);
-
-ALTER TABLE users
-    ADD CONSTRAINT uc_users_email UNIQUE (email);
-
-ALTER TABLE users
-    ADD CONSTRAINT uc_users_username UNIQUE (username);
 
 ALTER TABLE doctors
     ADD CONSTRAINT FK_DOCTORS_ON_USER FOREIGN KEY (user_id) REFERENCES users (id);
@@ -82,6 +50,3 @@ ALTER TABLE work_schedules
 
 ALTER TABLE work_schedules
     ADD CONSTRAINT chk_work_schedule_time_order CHECK (end_time > start_time);
-
-ALTER TABLE revchanges
-    ADD CONSTRAINT fk_revchanges_on_default_tracking_modified_entities_changelog FOREIGN KEY (rev) REFERENCES revinfo (rev);

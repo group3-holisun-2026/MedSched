@@ -1,0 +1,59 @@
+### Get all services
+GET http://localhost:8080/api/services
+
+###
+
+### Get service by ID
+### TODO this gives internal Server Error when the service doesnt  exist
+GET http://localhost:8080/api/services/a50e8400-e29b-41d4-a716-446655440000
+
+###
+
+### Create clinical service
+POST http://localhost:8080/api/services
+Content-Type: application/json
+
+{
+  "name": "Ecografie Abdominala",
+  "price": 250.00,
+  "defaultDurationMinutes": 30,
+  "requiredEquipmentTypeIds": [
+    "750e8400-e29b-41d4-a716-446655440000"
+  ],
+  "active": true
+}
+
+###
+
+### Create consultation service
+POST http://localhost:8080/api/services
+Content-Type: application/json
+
+{
+  "name": "Consult Cardiologic",
+  "price": 300.00,
+  "defaultDurationMinutes": 40,
+  "requiredEquipmentTypeIds": [],
+  "active": true
+}
+
+###
+
+### Update service
+PUT http://localhost:8080/api/services/a50e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "name": "Control Cardiologic",
+  "price": 350.00,
+  "defaultDurationMinutes": 45,
+  "requiredEquipmentTypeIds": [
+    "750e8400-e29b-41d4-a716-446655440000"
+  ],
+  "active": true
+}
+
+###
+
+### Delete service
+DELETE http://localhost:8080/api/services/a50e8400-e29b-41d4-a716-446655440000

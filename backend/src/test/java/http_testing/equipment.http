@@ -1,0 +1,48 @@
+### Get all equipment
+GET http://localhost:8080/api/equipment
+
+###
+
+### Get equipment by ID
+GET http://localhost:8080/api/equipment/650e8400-e29b-41d4-a716-446655440000
+
+###
+
+### Create equipment
+POST http://localhost:8080/api/equipment
+Content-Type: application/json
+
+{
+  "name": "Ecograf Doppler 4D",
+  "equipmentTypeId": "750e8400-e29b-41d4-a716-446655440000",
+  "roomId": "550e8400-e29b-41d4-a716-446655440000"
+}
+
+###
+
+### Create mobile equipment
+POST http://localhost:8080/api/equipment
+Content-Type: application/json
+
+{
+  "name": "Aparat ECG Portabil",
+  "equipmentTypeId": "850e8400-e29b-41d4-a716-446655440000",
+  "roomId": null
+}
+
+###
+
+### Update equipment
+PUT http://localhost:8080/api/equipment/650e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "name": "Aparat ECG Profesional",
+  "equipmentTypeId": "850e8400-e29b-41d4-a716-446655440000",
+  "roomId": "550e8400-e29b-41d4-a716-446655440000"
+}
+
+###
+
+### Delete equipment
+DELETE http://localhost:8080/api/equipment/650e8400-e29b-41d4-a716-446655440000

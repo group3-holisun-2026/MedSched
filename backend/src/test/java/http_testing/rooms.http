@@ -1,0 +1,34 @@
+### Get all rooms
+GET http://localhost:8080/api/rooms
+
+###
+
+### Get room by ID
+GET http://localhost:8080/api/rooms/550e8400-e29b-41d4-a716-446655440000
+
+###
+
+### Create room
+POST http://localhost:8080/api/rooms
+Content-Type: application/json
+
+{
+  "name": "Cabinet 101",
+  "description": "Etajul 1"
+}
+
+###
+
+### Update room
+PUT http://localhost:8080/api/rooms/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "name": "Cabinet 102",
+  "description": "Etajul 2"
+}
+
+###
+
+### Delete room
+DELETE http://localhost:8080/api/rooms/550e8400-e29b-41d4-a716-446655440000
