@@ -1,10 +1,24 @@
+### Create equipment type required by the abdominal ultrasound service
+POST http://localhost:8080/api/equipment-types
+Content-Type: application/json
+
+{
+  "name": "Ecograf Doppler 4D",
+  "description": "Ecograf de diagnostic"
+}
+
+> {%
+    client.global.set("equipmentTypeId", response.body.id);
+%}
+
+###
+
 ### Get all services
 GET http://localhost:8080/api/services
 
 ###
 
-### Get service by ID
-### TODO this gives internal Server Error when the service doesnt  exist
+### Get service by ID that doesn't exist -> now returns a clean 404
 GET http://localhost:8080/api/services/a50e8400-e29b-41d4-a716-446655440000
 
 ###
@@ -18,10 +32,14 @@ Content-Type: application/json
   "price": 250.00,
   "defaultDurationMinutes": 30,
   "requiredEquipmentTypeIds": [
-    "750e8400-e29b-41d4-a716-446655440000"
+    "{{equipmentTypeId}}"
   ],
   "active": true
 }
+
+> {%
+    client.global.set("serviceId", response.body.id);
+%}
 
 ###
 
@@ -40,7 +58,7 @@ Content-Type: application/json
 ###
 
 ### Update service
-PUT http://localhost:8080/api/services/a50e8400-e29b-41d4-a716-446655440000
+PUT http://localhost:8080/api/services/{{serviceId}}
 Content-Type: application/json
 
 {
@@ -48,7 +66,7 @@ Content-Type: application/json
   "price": 350.00,
   "defaultDurationMinutes": 45,
   "requiredEquipmentTypeIds": [
-    "750e8400-e29b-41d4-a716-446655440000"
+    "{{equipmentTypeId}}"
   ],
   "active": true
 }
@@ -56,4 +74,4 @@ Content-Type: application/json
 ###
 
 ### Delete service
-DELETE http://localhost:8080/api/services/a50e8400-e29b-41d4-a716-446655440000
+DELETE http://localhost:8080/api/services/{{serviceId}}

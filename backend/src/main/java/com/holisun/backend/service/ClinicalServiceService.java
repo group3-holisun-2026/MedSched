@@ -100,6 +100,10 @@ public class ClinicalServiceService implements ClinicalServiceServiceInterface {
 
     @Override
     public void delete(UUID id) {
+        if (!clinicalServiceRepository.existsById(id)) {
+            log.error("Service not found for delete: {}", id);
+            throw new ClinicalServiceException("Service not found: " + id);
+        }
         clinicalServiceRepository.deleteById(id);
         log.info("Deleted clinical service {}", id);
     }

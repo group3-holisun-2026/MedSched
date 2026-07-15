@@ -3,11 +3,6 @@ GET http://localhost:8080/api/rooms
 
 ###
 
-### Get room by ID
-GET http://localhost:8080/api/rooms/550e8400-e29b-41d4-a716-446655440000
-
-###
-
 ### Create room
 POST http://localhost:8080/api/rooms
 Content-Type: application/json
@@ -17,10 +12,19 @@ Content-Type: application/json
   "description": "Etajul 1"
 }
 
+> {%
+    client.global.set("roomId", response.body.id);
+%}
+
+###
+
+### Get room by ID
+GET http://localhost:8080/api/rooms/{{roomId}}
+
 ###
 
 ### Update room
-PUT http://localhost:8080/api/rooms/550e8400-e29b-41d4-a716-446655440000
+PUT http://localhost:8080/api/rooms/{{roomId}}
 Content-Type: application/json
 
 {
@@ -31,4 +35,4 @@ Content-Type: application/json
 ###
 
 ### Delete room
-DELETE http://localhost:8080/api/rooms/550e8400-e29b-41d4-a716-446655440000
+DELETE http://localhost:8080/api/rooms/{{roomId}}
