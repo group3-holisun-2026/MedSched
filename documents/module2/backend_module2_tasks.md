@@ -23,20 +23,39 @@ modifica — schimbarea afectează minim 2 persoane (owner-ul entității + P4 l
 id               : UUID (PK)
 firstName        : String, not null, length 100
 lastName         : String, not null, length 100
-cnp              : String, not null            -- text CRIPTAT (AES), NU e unic la nivel de coloană
-cnpHash          : String, not null, unique     -- hash determinist al CNP-ului în clar, pt. unicitate + căutare exactă
-dateOfBirth      : LocalDate, not null
+phone            : String, not null, length 20   -- singurele 3 câmpuri obligatorii la creare rapidă
+cnp              : String, nullable             -- text CRIPTAT (AES), NU e unic la nivel de coloană
+cnpHash          : String, nullable, unique      -- hash determinist al CNP-ului în clar, pt. unicitate + căutare exactă
+dateOfBirth      : LocalDate, nullable
 email            : String, nullable, length 255
-phone            : String, nullable, length 20
-allergies        : String (TEXT)
-medicalHistory   : String (TEXT)
+allergies        : String (TEXT), nullable
+medicalHistory   : String (TEXT), nullable
+profileComplete  : boolean, not null, default false
+createdAt        : LocalDateTime, not null
 ```
 **De ce `cnpHash` separat:** AES cu IV/nonce aleator (cum trebuie făcut ca să fie sigur) produce un
 ciphertext diferit de fiecare dată chiar pentru același CNP. Dacă am pune `unique` direct pe coloana
 criptată sau am căuta cu `WHERE cnp = ...`, nu ar funcționa niciodată. De-asta ținem separat un hash
 determinist (SHA-256/HMAC, fără sare aleatoare) doar pentru unicitate și lookup exact — el nu e "PII în
 clar" utilizabil (nu se poate inversa), dar e stabil pentru același CNP. `cnp` rămâne coloana criptată,
-reversibilă, folosită doar pentru afișare către utilizatori autorizați.
+reversibilă, folosită doar pentru afișare către utilizatori autorizați. `cnpHash` fiind `nullable +
+unique`, poate avea oricâte valori `NULL` simultan fără să încalce constrângerea (comportament standard
+Postgres — `NULL` nu se consideră egal cu alt `NULL`), deci mai mulți pacienți "incompleți" fără CNP
+încă introdus nu se blochează unul pe altul.
+
+**Decizie de business nouă (cerere PM):** recepția înregistrează un pacient nou pe loc (la telefon sau
+la ghișeu) doar cu **nume + prenume + telefon** — restul (CNP, data nașterii, email, alergii, istoric)
+se completează abia când pacientul vine fizic, completează/semnează formularul pe hârtie, iar recepția
+transcrie datele în sistem. Până atunci, pacientul e "cu profil incomplet" și trebuie să iasă în
+evidență undeva ca să nu se piardă din vedere — vezi widget-ul de mai jos (F-201 extins, nu e un modul
+separat).
+
+`profileComplete` e un flag persistat (nu calculat la fiecare citire), recalculat de service la fiecare
+`save`: `true` doar când `cnp` **și** `dateOfBirth` sunt ambele completate (email/alergii/istoric rămân
+opționale chiar și pe un profil "complet" — nu orice pacient are alergii cunoscute). Motivul pentru care
+e coloană persistată și nu doar getter calculat pe entitate: dashboard-ul are nevoie să filtreze/sorteze
+direct în SQL (`WHERE profile_complete = false ORDER BY ...`) pe liste potențial mari, nu să încarce
+totul în memorie și să filtreze în Java.
 
 ### `ConsultationRecord` (owner: P2)
 ```
@@ -78,11 +97,11 @@ Deci:
 - `PatientController` → accesibil oricărui staff autentificat (`ADMIN`, `DOCTOR`, `RECEPTION`).
 - `ConsultationController` → `@PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")`, **RECEPTION exclus explicit**.
 
-### Notă despre securitate (context, nu blocaj)
-`SecurityConfig` are acum `.anyRequest().permitAll()` — JWT/AuthContext e încă în lucru pe altă
-ramură. Adăugăm `@PreAuthorize` de pe acum (P3 activează `@EnableMethodSecurity`, P5 pune adnotările pe
-controllere) ca specificația să fie respectată în cod, dar ele nu vor avea efect real până se termină
-filtrul JWT. Nu e treaba noastră să terminăm auth-ul aici, doar să nu lăsăm găuri când el va fi gata.
+### Notă despre securitate (context, actualizat)
+`SecurityConfig` cere acum JWT valid pe orice endpoint în afară de `/api/auth/**` și `/public/**` (a
+fost integrat între timp, PR "Auth Implemented"/`backend-security`). `@EnableMethodSecurity` (P3) tot
+trebuie adăugat separat — fără el, `@PreAuthorize`-urile de pe controllere (P5) sunt ignorate complet,
+chiar dacă filtrul JWT e activ.
 
 ---
 
@@ -93,24 +112,50 @@ filtrul JWT. Nu e treaba noastră să terminăm auth-ul aici, doar să nu lăsă
 - [ ] `entity/Patient.java` — conform contractului de mai sus. Pune `@Convert(converter =
   AesEncryptionUtil.class)` pe câmpul `cnp` — clasa o livrează P3, dar poți compila de pe acum cu un
   stub gol (`encrypt`/`decrypt` = identitate) ca să nu aștepți după el; înlocuiești cu implementarea
-  reală când o livrează.
+  reală când o livrează. Nu uita `@PrePersist` pentru `createdAt` și recalcularea lui `profileComplete`
+  (vezi regula din contract) la fiecare `@PrePersist`/`@PreUpdate`, sau explicit în service înainte de
+  `save` — alegeți o singură locație, nu duplicați regula în ambele.
 - [ ] `repository/PatientRepository.java extends JpaRepository<Patient, UUID>`
   - `Optional<Patient> findByCnpHash(String cnpHash)` — pt. verificare duplicat la creare
   - `List<Patient> searchByNameOrPhoneOrCnp(String keyword)` — caută pe `firstName`/`lastName`/`phone`
     cu `LIKE` (query custom `@Query`); **CNP-ul criptat nu poate intra în acest LIKE** — dacă `keyword`
     arată ca un CNP (13 cifre), caută separat prin `cnpHash` calculat din `keyword` (exact match, nu
     LIKE). Documentează asta într-un comment scurt, e non-evident.
+  - `Page<Patient> findByProfileCompleteFalse(Pageable pageable)` (sau `List<>` + `Sort` dacă nu vrem
+    paginare încă) — pentru widget-ul de "pacienți incompleți"; `Pageable`/`Sort` acoperă sortarea
+    ascendent/descendent pe `lastName` sau pe `createdAt` fără cod suplimentar (Spring Data traduce
+    `Sort` direct în `ORDER BY`).
+  - `Page<Patient> searchIncompleteByName(String keyword, Pageable pageable)` — varianta cu căutare +
+    filtrul de incomplete combinate (widget-ul are și search, per cerința PM), `@Query` custom cu `LIKE`
+    pe `firstName`/`lastName` și `profile_complete = false`.
 - [ ] `service/PatientService.java` (`@Service`, stil similar cu `RoomService` — vezi
   [RoomService.java](../backend/src/main/java/com/holisun/backend/service/RoomService.java) ca referință de
   stil, interfață separată opțional)
   - `List<PatientResponse> search(String keyword)`
   - `PatientResponse getById(UUID id)` → 404 (`EntityNotFoundException`) dacă nu există
-  - `PatientResponse create(PatientRequest dto)` → 409 (`IllegalStateException`) dacă `cnpHash` există deja
-  - `PatientResponse update(UUID id, PatientRequest dto)`
+  - `PatientResponse create(PatientQuickCreateRequest dto)` — creare rapidă, doar `firstName`/`lastName`/
+    `phone` obligatorii (restul rămân `null`); `profileComplete` iese mereu `false` din acest apel. →
+    409 (`IllegalStateException`) dacă `cnpHash` există deja (n-ar trebui să fie cazul aici, dar rămâne
+    valabil dacă cineva trimite și CNP direct de la creare, ex. un pacient care vine cu tot pe loc).
+  - `PatientResponse update(UUID id, PatientRequest dto)` — folosit atât pentru editare normală cât și
+    pentru "completarea" profilului (recepția revine și adaugă CNP/data nașterii/etc. după ce pacientul
+    semnează formularul pe hârtie); `profileComplete` se recalculează automat la fiecare `update`, nu
+    există un endpoint separat de "marchează complet" — devine `true` de îndată ce `cnp` și
+    `dateOfBirth` sunt ambele nenule în urma acelui `update`.
+  - `Page<PatientResponse> getIncomplete(String keyword, Pageable pageable)` — sursa de date pentru
+    widget-ul de pe dashboard: pacienți cu `profileComplete = false`, opțional filtrați după `keyword`
+    (nume), sortabili ascendent/descendent (numele coloanei de sortare vine din `Pageable.getSort()`,
+    trimis de frontend ca query param — vezi lista de endpoint-uri la P5).
   - Nu există `delete` — pacienții nu se șterg (păstrare istoric legal), conform diagramei (doar
     GET/POST/PUT în `PatientController`).
-- [ ] `dto/PatientRequest.java`, `dto/PatientResponse.java` — validare cu `@NotBlank`/`@Past` (dateOfBirth)
-  etc., după modelul `RoomRequest`/`DoctorCreateRequest`.
+- [ ] `dto/PatientQuickCreateRequest.java` — `firstName`, `lastName`, `phone` (`@NotBlank` pe toate 3,
+  nimic altceva).
+- [ ] `dto/PatientRequest.java` (folosit la `update`/completare) — toate câmpurile din contract, dar
+  **fără `@NotNull` pe cnp/dateOfBirth/email/allergii/istoric** (opționale — recepția poate completa
+  doar o parte din ele într-o singură trecere, nu trebuie totul dintr-o dată). Validați totuși formatul
+  când e prezent (`@Pattern` pe CNP dacă e trimis, `@Past` pe `dateOfBirth` dacă e trimis).
+- [ ] `dto/PatientResponse.java` — include și `profileComplete` și `createdAt`, ca frontend-ul să poată
+  arăta badge-ul "Incomplet"/sorta widget-ul fără un al doilea request.
 
 **Coordonare cu P3:** te aliniezi cu el pe semnătura exactă a `AesEncryptionUtil` și pe cum se
 calculează `cnpHash` (probabil tot P3 expune un `CnpHasher`/metodă statică, ca să fie același algoritm
@@ -184,9 +229,16 @@ ca P1/P2/P5 să se poată agăța de ele fără să aștepte implementarea compl
   `consultation_records`, `audit_log` — coloane, tipuri și constrângeri **exact ca în contractul din
   secțiunea 0** de mai sus. Respectă convențiile deja folosite în V1-V3: `pk_<tabel>`,
   `uc_<tabel>_<coloana>`, `fk_<tabel>_on_<referinta>`, `chk_<regula>`.
-  - `patients`: `cnp` ca `TEXT`/`VARCHAR(500)` (ciphertext + IV pot fi mai lungi decât CNP-ul original,
-    lasă spațiu), `cnp_hash VARCHAR(64) UNIQUE NOT NULL` (SHA-256 hex are 64 caractere), `allergies` și
-    `medical_history` ca `TEXT`.
+  - `patients`: doar `first_name`, `last_name`, `phone` sunt `NOT NULL` (creare rapidă de recepție — vezi
+    decizia de business din contract). `cnp` ca `TEXT`/`VARCHAR(500)` **nullable** (ciphertext + IV pot
+    fi mai lungi decât CNP-ul original, lasă spațiu), `cnp_hash VARCHAR(64) UNIQUE` **nullable** (SHA-256
+    hex are 64 caractere — nullable+unique e ok în Postgres, mai mulți `NULL` nu se contrazic între ei),
+    `date_of_birth`, `email`, `allergies`, `medical_history` toate nullable (`allergies`/`medical_history`
+    ca `TEXT`). Adaugă și `profile_complete BOOLEAN NOT NULL DEFAULT FALSE` și
+    `created_at TIMESTAMP NOT NULL DEFAULT now()` — folosite de widget-ul de "pacienți incompleți" de pe
+    dashboard (căutare + sortare pe ele, vezi task-urile P1/P5). Un index pe `profile_complete` (parțial,
+    `WHERE profile_complete = false`, dacă vreți să optimizați) ajută dacă baza crește mult — nu e
+    obligatoriu de la V4, dar notează-l ca opțiune.
   - `consultation_records`: `appointment_id UUID NOT NULL UNIQUE` — **fără FK** (tabela `appointments`
     nu există încă, o adaugă cine face Modulul 3, într-o migrare viitoare).
   - `audit_log`: `user_id UUID NOT NULL`, cu `FK -> users(id)` (tabela `users` există din V1).
@@ -207,8 +259,17 @@ ca P1/P2/P5 să se poată agăța de ele fără să aștepte implementarea compl
   |---|---|---|---|---|
   | GET | `/api/patients?search=` | — | `PatientResponse[]` | ADMIN, DOCTOR, RECEPTION |
   | GET | `/api/patients/{id}` | — | `PatientResponse` | ADMIN, DOCTOR, RECEPTION |
-  | POST | `/api/patients` | `PatientRequest` | `PatientResponse` (201) | ADMIN, DOCTOR, RECEPTION |
+  | POST | `/api/patients` | `PatientQuickCreateRequest` | `PatientResponse` (201) | ADMIN, DOCTOR, RECEPTION |
   | PUT | `/api/patients/{id}` | `PatientRequest` | `PatientResponse` (200) | ADMIN, DOCTOR, RECEPTION |
+  | GET | `/api/patients/incomplete?search=&sort=lastName,asc` | — | `Page<PatientResponse>` | ADMIN, DOCTOR, RECEPTION |
+
+  Ultimul endpoint alimentează widget-ul de pe dashboard (secțiunea "pacienți de completat" cerută de
+  PM) — acceptă `sort` ca parametru standard Spring Data (`<coloană>,<asc|desc>`, ex.
+  `lastName,asc` sau `createdAt,desc`); mapează direct pe `Pageable` din controller
+  (`@PageableDefault(sort = "createdAt", direction = Sort.Direction.ASC)`), nu reinventa parsing-ul.
+  `POST /api/patients` trece acum la `PatientQuickCreateRequest` (doar nume+telefon) — orice completare
+  ulterioară de profil se face tot prin `PUT /api/patients/{id}` cu `PatientRequest`, nu printr-un
+  endpoint separat de "completează".
 
 - [ ] `ConsultationController.java` — `/api/appointments/{appointmentId}/record`,
   `@PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")` **la nivel de clasă** (RECEPTION exclus — testează
