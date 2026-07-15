@@ -1,0 +1,14 @@
+[33mcommit ec2bef648768693ac475692a448794e6cd2a6917[m
+Author: bujoralexandru345-art <bujoralexandru345@gmail.com>
+Date:   Wed Jul 15 12:47:54 2026 +0300
+
+    Implementare schelet AuthContext (FE-AUTH-002)
+    
+    - AuthContext cu login, logout, tryRefresh, authFetch
+    - authFetch interceteaza 401 si reincearca automat dupa refresh
+    - Adaugat AuthProvider in App.jsx (in interiorul BrowserRouter)
+    - TODO-uri marcate unde depinde de backend (login, refresh, logout endpoints)
+
+ frontend/src/App.jsx    | 33 [32m++++++++++++++++++[m[31m---------------[m
+ frontend/src/api/api.js | 37 [32m+++++++++++++++++++++++++++++++++++++[m
+ 2 files changed, 55 insertions(+), 15 deletions(-)
