@@ -1,6 +1,7 @@
 package com.holisun.backend.exception;
 
 import com.holisun.backend.dto.ErrorResponse;
+import com.holisun.backend.service.ClinicalServiceException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -16,28 +17,36 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import java.time.DateTimeException;
 import java.time.Instant;
 
 /**
  * Centralizeaza maparea exceptiilor la un raspuns JSON consistent (ErrorResponse).
  * Extinde ResponseEntityExceptionHandler ca sa preia gratuit maparea corecta pt
  * exceptiile "de framework" ale Spring MVC (JSON invalid, @Valid esuat, ruta
- * nemapata, ResponseStatusException) — altfel catch-all-ul de mai jos le-ar fi
- * furat din lantul de rezolvare implicit al Spring si le-ar fi transformat pe
- * toate in 500 brut.
+ * nemapata — inclusiv ResponseStatusException folosit in RoomService/EquipmentService,
+ * pt ca extinde ErrorResponseException care e acoperit acolo). Fara asta, catch-all-ul
+ * de mai jos le-ar fi furat din lantul de rezolvare implicit al Spring si le-ar fi
+ * transformat pe toate in 500 brut — orice @ExceptionHandler declarat aici (mostenit
+ * sau propriu) are prioritate fata de rezolvarea implicita.
  */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(EntityNotFoundException ex, HttpServletRequest request) {
+    @ExceptionHandler({EntityNotFoundException.class, ClinicalServiceException.class})
+    public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleConflict(IllegalStateException ex, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler({DateTimeException.class, IllegalArgumentException.class})
+    public ResponseEntity<ErrorResponse> handleBadRequest(RuntimeException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
     @ExceptionHandler(BadCredentialsException.class)

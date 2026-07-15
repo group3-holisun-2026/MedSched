@@ -1,10 +1,22 @@
-### Get all doctors
-GET http://localhost:8080/api/doctors
+### Register a user to attach the doctor profile to
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "dr.popescu",
+  "email": "popescu@example.com",
+  "passwordHash": "placeholder",
+  "role": "DOCTOR"
+}
+
+> {%
+    client.global.set("doctorUserId", response.body.id);
+%}
 
 ###
 
-### Get doctor by ID
-GET http://localhost:8080/api/doctors/950e8400-e29b-41d4-a716-446655440000
+### Get all doctors
+GET http://localhost:8080/api/doctors
 
 ###
 
@@ -13,36 +25,44 @@ POST http://localhost:8080/api/doctors
 Content-Type: application/json
 
 {
-  "userId": "150e8400-e29b-41d4-a716-446655440000",
+  "userId": "{{doctorUserId}}",
   "speciality": "Cardiology",
   "standardConsultationDurationMinutes": 30,
   "schedule": [
     {
-      "dayOfWeek": "MONDAY",
+      "dayOfWeek": 1,
       "startTime": "08:00",
       "endTime": "14:00"
     },
     {
-      "dayOfWeek": "TUESDAY",
+      "dayOfWeek": 2,
       "startTime": "14:00",
       "endTime": "20:00"
     }
   ]
 }
 
+> {%
+    client.global.set("doctorId", response.body.id);
+%}
+
+###
+
+### Get doctor by ID
+GET http://localhost:8080/api/doctors/{{doctorId}}
+
 ###
 
 ### Update doctor
-PUT http://localhost:8080/api/doctors/950e8400-e29b-41d4-a716-446655440000
+PUT http://localhost:8080/api/doctors/{{doctorId}}
 Content-Type: application/json
 
 {
-  "userId": "150e8400-e29b-41d4-a716-446655440000",
   "speciality": "Dermatology",
   "standardConsultationDurationMinutes": 20,
   "schedule": [
     {
-      "dayOfWeek": "WEDNESDAY",
+      "dayOfWeek": 3,
       "startTime": "09:00",
       "endTime": "17:00"
     }
@@ -52,4 +72,4 @@ Content-Type: application/json
 ###
 
 ### Delete doctor
-DELETE http://localhost:8080/api/doctors/950e8400-e29b-41d4-a716-446655440000
+DELETE http://localhost:8080/api/doctors/{{doctorId}}
