@@ -21,22 +21,18 @@ public class Doctor {
     private UUID id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false, unique = true)
     private User user;
 
-    @Column(name = "specialization", nullable = false, length = 150)
-    private String specialization;
+    @Column(name = "speciality", nullable = false, length = 150)
+    private String speciality;
 
-    @Column(name = "standard_appointment_duration_minutes", nullable = false)
-    private Integer standardAppointmentDurationMinutes;
+    @Column(name = "standard_consultation_duration_minutes", nullable = false)
+    private Integer standardConsultationDurationMinutes;
 
     @Column(name = "active", nullable = false)
     private Boolean active = true;
 
-    @ElementCollection
-    @CollectionTable(
-            name = "doctor_weekly_schedule",
-            joinColumns = @JoinColumn(name = "doctor_id")
-    )
-    private List<WorkingHours> weeklySchedule;
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<WorkSchedule> weeklySchedule = new ArrayList<>();
 }

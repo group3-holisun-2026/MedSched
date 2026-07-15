@@ -1,0 +1,55 @@
+### Get all doctors
+GET http://localhost:8080/api/doctors
+
+###
+
+### Get doctor by ID
+GET http://localhost:8080/api/doctors/950e8400-e29b-41d4-a716-446655440000
+
+###
+
+### Create doctor
+POST http://localhost:8080/api/doctors
+Content-Type: application/json
+
+{
+  "userId": "150e8400-e29b-41d4-a716-446655440000",
+  "speciality": "Cardiology",
+  "standardConsultationDurationMinutes": 30,
+  "schedule": [
+    {
+      "dayOfWeek": "MONDAY",
+      "startTime": "08:00",
+      "endTime": "14:00"
+    },
+    {
+      "dayOfWeek": "TUESDAY",
+      "startTime": "14:00",
+      "endTime": "20:00"
+    }
+  ]
+}
+
+###
+
+### Update doctor
+PUT http://localhost:8080/api/doctors/950e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "userId": "150e8400-e29b-41d4-a716-446655440000",
+  "speciality": "Dermatology",
+  "standardConsultationDurationMinutes": 20,
+  "schedule": [
+    {
+      "dayOfWeek": "WEDNESDAY",
+      "startTime": "09:00",
+      "endTime": "17:00"
+    }
+  ]
+}
+
+###
+
+### Delete doctor
+DELETE http://localhost:8080/api/doctors/950e8400-e29b-41d4-a716-446655440000
