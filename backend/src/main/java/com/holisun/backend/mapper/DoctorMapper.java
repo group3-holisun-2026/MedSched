@@ -6,6 +6,7 @@ import com.holisun.backend.dto.DoctorUpdateRequest;
 import com.holisun.backend.dto.WorkingHoursDto;
 import com.holisun.backend.entity.Doctor;
 import com.holisun.backend.entity.WorkSchedule;
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -33,10 +34,17 @@ public interface DoctorMapper {
     DoctorResponse toResponse(Doctor doctor);
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "doctor", ignore = true) // back-reference set explicitly in DoctorServiceImpl before save
+    @Mapping(target = "doctor", ignore = true) // back-reference set below, via linkWorkSchedules
     WorkSchedule toEntity(WorkingHoursDto dto);
 
     WorkingHoursDto toDto(WorkSchedule schedule);
+
+    @AfterMapping
+    default void linkWorkSchedules(@MappingTarget Doctor doctor) {
+        if (doctor.getWeeklySchedule() != null) {
+            doctor.getWeeklySchedule().forEach(schedule -> schedule.setDoctor(doctor));
+        }
+    }
 
     default DayOfWeek map(Short value) {
         return value == null ? null : DayOfWeek.of(value);
