@@ -1,10 +1,50 @@
-### Get all equipment
-GET http://localhost:8080/api/equipment
+### Create a room to attach equipment to
+POST http://localhost:8080/api/rooms
+Content-Type: application/json
+
+{
+  "name": "Cabinet Ecografie",
+  "description": "Etajul 1"
+}
+
+> {%
+    client.global.set("roomId", response.body.id);
+%}
 
 ###
 
-### Get equipment by ID
-GET http://localhost:8080/api/equipment/650e8400-e29b-41d4-a716-446655440000
+### Create equipment type for the fixed equipment
+POST http://localhost:8080/api/equipment-types
+Content-Type: application/json
+
+{
+  "name": "Ecograf Doppler 4D",
+  "description": "Ecograf de diagnostic"
+}
+
+> {%
+    client.global.set("equipmentTypeId", response.body.id);
+%}
+
+###
+
+### Create equipment type for the mobile equipment
+POST http://localhost:8080/api/equipment-types
+Content-Type: application/json
+
+{
+  "name": "Aparat ECG",
+  "description": "Electrocardiograf portabil"
+}
+
+> {%
+    client.global.set("mobileEquipmentTypeId", response.body.id);
+%}
+
+###
+
+### Get all equipment
+GET http://localhost:8080/api/equipment
 
 ###
 
@@ -14,9 +54,13 @@ Content-Type: application/json
 
 {
   "name": "Ecograf Doppler 4D",
-  "equipmentTypeId": "750e8400-e29b-41d4-a716-446655440000",
-  "roomId": "550e8400-e29b-41d4-a716-446655440000"
+  "equipmentTypeId": "{{equipmentTypeId}}",
+  "roomId": "{{roomId}}"
 }
+
+> {%
+    client.global.set("equipmentId", response.body.id);
+%}
 
 ###
 
@@ -26,23 +70,28 @@ Content-Type: application/json
 
 {
   "name": "Aparat ECG Portabil",
-  "equipmentTypeId": "850e8400-e29b-41d4-a716-446655440000",
+  "equipmentTypeId": "{{mobileEquipmentTypeId}}",
   "roomId": null
 }
 
 ###
 
+### Get equipment by ID
+GET http://localhost:8080/api/equipment/{{equipmentId}}
+
+###
+
 ### Update equipment
-PUT http://localhost:8080/api/equipment/650e8400-e29b-41d4-a716-446655440000
+PUT http://localhost:8080/api/equipment/{{equipmentId}}
 Content-Type: application/json
 
 {
   "name": "Aparat ECG Profesional",
-  "equipmentTypeId": "850e8400-e29b-41d4-a716-446655440000",
-  "roomId": "550e8400-e29b-41d4-a716-446655440000"
+  "equipmentTypeId": "{{mobileEquipmentTypeId}}",
+  "roomId": "{{roomId}}"
 }
 
 ###
 
 ### Delete equipment
-DELETE http://localhost:8080/api/equipment/650e8400-e29b-41d4-a716-446655440000
+DELETE http://localhost:8080/api/equipment/{{equipmentId}}
