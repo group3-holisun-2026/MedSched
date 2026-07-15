@@ -1,9 +1,8 @@
-const BASE_URL = "http://localhost:8080/api"; // TODO: confirma cu Ianis portul/URL-ul real al backend-ului
+const BASE_URL = "http://localhost:8080/api";
 
 // ---- AUTH ----
 
 export async function loginRequest(email, password) {
-    // TODO: endpoint-ul /api/auth/login nu e inca implementat pe backend (doar /api/auth/register exista acum)
     const response = await fetch(`${BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -14,11 +13,10 @@ export async function loginRequest(email, password) {
         throw new Error("Login esuat");
     }
 
-    return response.json(); // TODO: confirma formatul exact al raspunsului (accessToken, refreshToken, user)
+    return response.json(); // { accessToken, refreshToken, tokenType, expiresIn, user: { id, username, email, phone, city, role } }
 }
 
 export async function refreshTokenRequest(refreshToken) {
-    // TODO: endpoint-ul /api/auth/refresh nu e inca implementat pe backend
     const response = await fetch(`${BASE_URL}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -29,9 +27,29 @@ export async function refreshTokenRequest(refreshToken) {
         throw new Error("Refresh esuat");
     }
 
-    return response.json(); // TODO: confirma formatul exact (accessToken nou, posibil si refreshToken nou)
+    return response.json();
 }
 
-export async function logoutRequest() {
-    // TODO: endpoint-ul /api/auth/logout nu e inca implementat (optional, poate fi doar client-side)
+export async function logoutRequest(accessToken) {
+    await fetch(`${BASE_URL}/auth/logout`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+}
+
+export async function meRequest(accessToken) {
+    const response = await fetch(`${BASE_URL}/auth/me`, {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error("Nu s-a putut obtine userul curent");
+    }
+
+    return response.json(); // UserResponse: { id, username, email, phone, city, role }
 }
