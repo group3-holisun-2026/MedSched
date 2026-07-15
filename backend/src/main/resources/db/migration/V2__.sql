@@ -1,11 +1,13 @@
 CREATE SEQUENCE IF NOT EXISTS revinfo_seq START WITH 1 INCREMENT BY 50;
 
-CREATE TABLE doctor_weekly_schedule
+CREATE TABLE work_schedules
 (
-    doctor_id   UUID     NOT NULL,
-    day_of_week SMALLINT NOT NULL,
+    id          UUID                   NOT NULL,
+    doctor_id   UUID                   NOT NULL,
+    day_of_week VARCHAR(20)            NOT NULL,
     start_time  time WITHOUT TIME ZONE NOT NULL,
-    end_time    time WITHOUT TIME ZONE NOT NULL
+    end_time    time WITHOUT TIME ZONE NOT NULL,
+    CONSTRAINT pk_work_schedules PRIMARY KEY (id)
 );
 
 CREATE TABLE doctors
@@ -72,8 +74,14 @@ ALTER TABLE users
 ALTER TABLE doctors
     ADD CONSTRAINT FK_DOCTORS_ON_USER FOREIGN KEY (user_id) REFERENCES users (id);
 
-ALTER TABLE doctor_weekly_schedule
-    ADD CONSTRAINT fk_doctor_weeklyschedule_on_doctor FOREIGN KEY (doctor_id) REFERENCES doctors (id);
+ALTER TABLE work_schedules
+    ADD CONSTRAINT fk_work_schedules_on_doctor FOREIGN KEY (doctor_id) REFERENCES doctors (id);
+
+ALTER TABLE work_schedules
+    ADD CONSTRAINT uc_doctor_day_start UNIQUE (doctor_id, day_of_week, start_time);
+
+ALTER TABLE work_schedules
+    ADD CONSTRAINT chk_work_schedule_time_order CHECK (end_time > start_time);
 
 ALTER TABLE revchanges
     ADD CONSTRAINT fk_revchanges_on_default_tracking_modified_entities_changelog FOREIGN KEY (rev) REFERENCES revinfo (rev);
