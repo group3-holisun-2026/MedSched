@@ -1,0 +1,109 @@
+### Register a new user
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "reception-{{$uuid}}",
+  "email": "reception-{{$uuid}}@example.com",
+  "password": "Passw0rd!",
+  "role": "RECEPTION",
+  "phone": "0712345678",
+  "city": "Cluj-Napoca"
+}
+
+> {%
+    client.global.set("registeredEmail", response.body.email);
+%}
+
+###
+
+### Register with a duplicate email -> 409 Conflict
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "someone-else",
+  "email": "{{registeredEmail}}",
+  "password": "Passw0rd!",
+  "role": "RECEPTION"
+}
+
+###
+
+### Login -> access token + refresh token
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{registeredEmail}}",
+  "password": "Passw0rd!"
+}
+
+> {%
+    client.global.set("accessToken", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+###
+
+### Login with wrong password -> 401
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{registeredEmail}}",
+  "password": "wrong-password"
+}
+
+###
+
+### GET /api/auth/me without a token -> 401
+GET http://localhost:8080/api/auth/me
+
+###
+
+### GET /api/auth/me with the access token
+GET http://localhost:8080/api/auth/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Any protected Module 1 endpoint without a token -> 401
+GET http://localhost:8080/api/rooms
+
+###
+
+### The same endpoint with the access token -> works
+GET http://localhost:8080/api/rooms
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Refresh the access token using the refresh token
+POST http://localhost:8080/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+> {%
+    client.global.set("accessToken", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+###
+
+### Logout (revokes all refresh tokens for this user)
+POST http://localhost:8080/api/auth/logout
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Using the now-revoked refresh token -> 401
+POST http://localhost:8080/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
