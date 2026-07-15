@@ -20,8 +20,8 @@ public class Doctor {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
     private User user;
 
     @Column(name = "specialization", nullable = false, length = 150)
@@ -33,6 +33,10 @@ public class Doctor {
     @Column(name = "active", nullable = false)
     private Boolean active = true;
 
-    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<WorkSchedule> weeklySchedule = new ArrayList<>();
+    @ElementCollection
+    @CollectionTable(
+            name = "doctor_weekly_schedule",
+            joinColumns = @JoinColumn(name = "doctor_id")
+    )
+    private List<WorkingHours> weeklySchedule;
 }
