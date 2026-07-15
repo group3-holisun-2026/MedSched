@@ -7,14 +7,18 @@ public class EquipmentResponse {
     private UUID id;
     private String name;
     private boolean active;
+    private UUID equipmentTypeId;
+    private UUID roomId;
 
     public EquipmentResponse() {
     }
 
-    public EquipmentResponse(UUID id, String name, boolean active) {
+    public EquipmentResponse(UUID id, String name, boolean active, UUID equipmentTypeId, UUID roomId) {
         this.id = id;
         this.name = name;
         this.active = active;
+        this.equipmentTypeId = equipmentTypeId;
+        this.roomId = roomId;
     }
 
     public UUID getId() {
@@ -39,5 +43,21 @@ public class EquipmentResponse {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public UUID getEquipmentTypeId() {
+        return equipmentTypeId;
+    }
+
+    public void setEquipmentTypeId(UUID equipmentTypeId) {
+        this.equipmentTypeId = equipmentTypeId;
+    }
+
+    public UUID getRoomId() {
+        return roomId;
+    }
+
+    public void setRoomId(UUID roomId) {
+        this.roomId = roomId;
     }
 }
