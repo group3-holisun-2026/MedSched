@@ -1,6 +1,6 @@
 package com.holisun.backend.service;
 
-
+import com.holisun.backend.util.CnpHasher;
 import com.holisun.backend.dto.PatientQuickCreateRequest;
 import com.holisun.backend.dto.PatientRequest;
 import com.holisun.backend.dto.PatientResponse;
@@ -31,16 +31,19 @@ public class PatientServiceImpl implements PatientService {
     @Override
     public List<PatientResponse> search(String keyword) {
         List<Patient> patients;
-
         if (keyword == null || keyword.isBlank()) {
             patients = repo.findAll();
+        } else if (keyword.matches("\\d{13}")) {
+
+            patients = repo
+                    .findByCnpHash(CnpHasher.hash(keyword))
+                    .map(List::of)
+                    .orElse(List.of());
+
         } else {
-            // TODO
-            // If keyword is a 13-digit CNP:
-            //   String hash = CnpHasher.hash(keyword);
-            //   return repository.findByCnpHash(hash)...
             patients = repo.searchByNameOrPhoneOrCnp(keyword);
         }
+
 
         return patients.stream()
                 .map(mapper::patientToDto)
@@ -62,53 +65,63 @@ public class PatientServiceImpl implements PatientService {
     public PatientResponse create(PatientQuickCreateRequest dto) {
         Patient patient = mapper.dtoToPatient(dto);
 
-        // TODO
-        // if(dto.getCnp()!=null){
-        //      String hash = CnpHasher.hash(dto.getCnp());
-        //      if(patientRepository.findByCnpHash(hash).isPresent())
-        //          throw new IllegalStateException(...);
-        //      patient.setCnpHash(hash);
-        // }
+        if (patient.getCnp() != null && !patient.getCnp().isBlank()) {
 
+            String hash = CnpHasher.hash(patient.getCnp());
 
-        Patient savedPatient = repo.save(patient);
+            if (repo.findByCnpHash(hash).isPresent()) {
+                throw new IllegalStateException("A patient with this CNP already exists.");
+            }
 
-        return mapper.patientToDto(savedPatient);
+            patient.setCnpHash(hash);
+        }
+
+        Patient saved = repo.save(patient);
+
+        return mapper.patientToDto(saved);
     }
 
     @Override
     public PatientResponse update(UUID id, PatientRequest dto) {
-        Optional<Patient> patient = repo.findById(id);
-        if (patient.isEmpty()) {
-            log.error("No patient with {} id to update", id);
-            throw new PatientException("No patient with that id");
+        Patient patient = repo.findById(id)
+                .orElseThrow(() ->
+                        new PatientException("Patient not found: " + id));
+
+        mapper.updatePatientFromDto(dto, patient);
+
+        if (patient.getCnp() != null && !patient.getCnp().isBlank()) {
+
+            String hash = CnpHasher.hash(patient.getCnp());
+
+            repo.findByCnpHash(hash)
+                    .ifPresent(existing -> {
+                        if (!existing.getId().equals(patient.getId())) {
+                            throw new IllegalStateException("A patient with this CNP already exists.");
+                        }
+                    });
+
+            patient.setCnpHash(hash);
+        } else {
+            patient.setCnpHash(null);
         }
 
-        mapper.updatePatientFromDto(dto, patient.get());
+        Patient updated = repo.save(patient);
 
-        // TODO
-        // if(dto.getCnp()!=null){
-        //      String hash = CnpHasher.hash(dto.getCnp());
-        //      check duplicates...
-        //      patient.setCnpHash(hash);
-        // }
-
-        Patient updatedPatient = repo.save(patient.get());
-
-        return mapper.patientToDto(updatedPatient);
+        return mapper.patientToDto(updated);
 
     }
 
     @Override
     public Page<PatientResponse> getIncomplete(String keyword, Pageable pageable) {
-        Page<Patient> patients;
+        Page<Patient> page;
+
         if (keyword == null || keyword.isBlank()) {
-            patients = repo.findByProfileCompleteFalse(pageable);
+            page = repo.findByProfileCompleteFalse(pageable);
         } else {
-            patients = repo.searchIncompleteByName(keyword, pageable);
+            page = repo.searchIncompleteByName(keyword, pageable);
         }
 
-        return patients.map(mapper::patientToDto);
+        return page.map(mapper::patientToDto);
     }
 }
 
