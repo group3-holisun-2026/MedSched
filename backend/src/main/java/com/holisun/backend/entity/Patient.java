@@ -1,5 +1,7 @@
 package com.holisun.backend.entity;
 
+import com.holisun.backend.util.AesEncryptionUtil;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,7 +28,7 @@ public class Patient {
     @Column(nullable = false, name = "phone", length = 20)
     private String phone;
 
-    @Convert()
+    @Convert(converter = AesEncryptionUtil.class)
     @Column(name = "cnp", nullable = true, length = 512)
     private String cnp;
 
@@ -53,15 +55,17 @@ public class Patient {
 
 
     @PrePersist
-    public void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
-
-    @PrePersist
     @PreUpdate
-    private void updateProfileComplete() {
+    private void beforeSave() {
+
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+
         profileComplete =
-                cnp != null && dateOfBirth != null;
+                cnp != null &&
+                        !cnp.isBlank() &&
+                        dateOfBirth != null;
     }
 
 
