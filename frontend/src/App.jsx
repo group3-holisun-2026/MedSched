@@ -16,7 +16,6 @@ function Navbar() {
         navigate('/login');
     };
 
-    // TODO: confirma cu Ianis numele exact al campului de rol (user.role?) si valorile posibile (ADMIN, MEDIC, RECEPTIONIST?)
     const role = user?.role;
 
     return (
@@ -25,28 +24,25 @@ function Navbar() {
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
             <Link to="/patients" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Pacienti</Link>
 
-            {isAuthenticated && (role === 'ADMINISTRATOR' || role === 'ADMIN') && (
+            {isAuthenticated && role === 'ADMIN' && (
                 <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                     Administrare
                 </Link>
             )}
 
-            {/* TODO: bug cunoscut — rolul real de backend e "ADMIN" (@PreAuthorize hasRole('ADMIN')),
-                dar aici verificam si "ADMINISTRATOR" ca sa nu pierdem accesul pana se rezolva inconsistenta.
-                De curatat cand PR-ul de fix pentru roluri e mergeuit. */}
-            {isAuthenticated && (role === 'ADMINISTRATOR' || role === 'ADMIN') && (
+            {isAuthenticated && role === 'ADMIN' && (
                 <Link to="/audit-log" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                     Audit Log
                 </Link>
             )}
 
-            {isAuthenticated && role === 'MEDIC' && (
+            {isAuthenticated && role === 'DOCTOR' && (
                 <Link to="/doctor" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                     Program Medic
                 </Link>
             )}
 
-            {isAuthenticated && role === 'RECEPTIONIST' && (
+            {isAuthenticated && role === 'RECEPTION' && (
                 <Link to="/receptie" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                     Receptie
                 </Link>
