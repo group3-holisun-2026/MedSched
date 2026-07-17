@@ -17,7 +17,7 @@ public class Patient {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "first_name", nullable = false,length = 100)
+    @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
     @Column(name = "last_name", nullable = false, length = 100)
@@ -39,7 +39,7 @@ public class Patient {
     @Column(name = "email", nullable = true, length = 255)
     private String email;
 
-    @Column(name = "allergies",nullable = true, columnDefinition = "TEXT")
+    @Column(name = "allergies", nullable = true, columnDefinition = "TEXT")
     private String allergies; // e.g work
 
     @Column(name = "medical_history", nullable = true, columnDefinition = "TEXT")
@@ -48,7 +48,7 @@ public class Patient {
     @Column(name = "profile_complete", nullable = false)
     private Boolean profileComplete = false;
 
-    @Column (name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
 
@@ -61,11 +61,7 @@ public class Patient {
     @PreUpdate
     private void updateProfileComplete() {
         profileComplete =
-                cnp != null &&
-                        dateOfBirth != null &&
-                        email != null &&
-                        allergies != null &&
-                        medicalHistory != null;
+                cnp != null && dateOfBirth != null;
     }
 
 
