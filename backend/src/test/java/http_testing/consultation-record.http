@@ -1,0 +1,210 @@
+### Register a DOCTOR
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "doctor-{{$uuid}}",
+  "email": "doctor-{{$uuid}}@example.com",
+  "password": "Passw0rd!",
+  "role": "DOCTOR",
+  "phone": "0712345678",
+  "city": "Cluj-Napoca"
+}
+
+> {%
+    client.global.set("doctorEmail", response.body.email);
+%}
+
+###
+
+### Register an ADMIN
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "admin-{{$uuid}}",
+  "email": "admin-{{$uuid}}@example.com",
+  "password": "Passw0rd!",
+  "role": "ADMIN",
+  "phone": "0712345679",
+  "city": "Cluj-Napoca"
+}
+
+> {%
+    client.global.set("adminEmail", response.body.email);
+%}
+
+###
+
+### Register a RECEPTION user
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "reception-{{$uuid}}",
+  "email": "reception-{{$uuid}}@example.com",
+  "password": "Passw0rd!",
+  "role": "RECEPTION",
+  "phone": "0712345680",
+  "city": "Cluj-Napoca"
+}
+
+> {%
+    client.global.set("receptionEmail", response.body.email);
+%}
+
+###
+
+### Login as DOCTOR
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{doctorEmail}}",
+  "password": "Passw0rd!"
+}
+
+> {%
+    client.global.set("doctorToken", response.body.accessToken);
+%}
+
+###
+
+### Login as ADMIN
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "Passw0rd!"
+}
+
+> {%
+    client.global.set("adminToken", response.body.accessToken);
+%}
+
+###
+
+### Login as RECEPTION
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{receptionEmail}}",
+  "password": "Passw0rd!"
+}
+
+> {%
+    client.global.set("receptionToken", response.body.accessToken);
+%}
+
+###
+
+### No token at all -> 401
+< {%
+    function uuidv4() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+    client.global.set("appointmentId", uuidv4());
+%}
+GET http://localhost:8080/api/appointments/{{appointmentId}}/record
+
+###
+
+### RECEPTION is explicitly excluded -> 403
+GET http://localhost:8080/api/appointments/{{appointmentId}}/record
+Authorization: Bearer {{receptionToken}}
+
+###
+
+### DOCTOR reads a record that doesn't exist yet -> 404
+GET http://localhost:8080/api/appointments/{{appointmentId}}/record
+Authorization: Bearer {{doctorToken}}
+
+###
+
+### DOCTOR creates the consultation record -> 201
+POST http://localhost:8080/api/appointments/{{appointmentId}}/record
+Authorization: Bearer {{doctorToken}}
+Content-Type: application/json
+
+{
+  "presentationMotive": "Durere de cap",
+  "anamnesis": "Pacientul are simptome de doua zile",
+  "clinicalExam": "Examen clinic normal",
+  "diagnosis": "Migrena",
+  "prescription": "Ibuprofen 400mg, o data pe zi"
+}
+
+###
+
+### Creating a second record for the same appointment -> 409 (1-1 relation)
+POST http://localhost:8080/api/appointments/{{appointmentId}}/record
+Authorization: Bearer {{doctorToken}}
+Content-Type: application/json
+
+{
+  "presentationMotive": "Durere de cap",
+  "anamnesis": "Duplicat",
+  "clinicalExam": "N/A",
+  "diagnosis": "N/A",
+  "prescription": "N/A"
+}
+
+###
+
+### RECEPTION still can't read it -> 403
+GET http://localhost:8080/api/appointments/{{appointmentId}}/record
+Authorization: Bearer {{receptionToken}}
+
+###
+
+### DOCTOR reads the record -> 200
+GET http://localhost:8080/api/appointments/{{appointmentId}}/record
+Authorization: Bearer {{doctorToken}}
+
+###
+
+### ADMIN can also read it -> 200
+GET http://localhost:8080/api/appointments/{{appointmentId}}/record
+Authorization: Bearer {{adminToken}}
+
+###
+
+### DOCTOR updates the record while unlocked -> 200
+PUT http://localhost:8080/api/appointments/{{appointmentId}}/record
+Authorization: Bearer {{doctorToken}}
+Content-Type: application/json
+
+{
+  "presentationMotive": "Durere de cap",
+  "anamnesis": "Simptome persistente de trei zile",
+  "clinicalExam": "Examen clinic normal",
+  "diagnosis": "Migrena cronica",
+  "prescription": "Ibuprofen 400mg, de doua ori pe zi"
+}
+
+###
+
+### GET on a random appointmentId that was never created -> 404
+GET http://localhost:8080/api/appointments/{{$uuid}}/record
+Authorization: Bearer {{doctorToken}}
+
+###
+
+### RECEPTION can't create a record either -> 403
+POST http://localhost:8080/api/appointments/{{$uuid}}/record
+Authorization: Bearer {{receptionToken}}
+Content-Type: application/json
+
+{
+  "presentationMotive": "N/A",
+  "anamnesis": "N/A",
+  "clinicalExam": "N/A",
+  "diagnosis": "N/A",
+  "prescription": "N/A"
+}

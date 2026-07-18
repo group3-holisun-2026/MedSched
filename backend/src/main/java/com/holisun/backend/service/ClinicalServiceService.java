@@ -3,6 +3,7 @@ package com.holisun.backend.service;
 import com.holisun.backend.dto.ClinicalServiceRequest;
 import com.holisun.backend.dto.ClinicalServiceResponse;
 import com.holisun.backend.entity.EquipmentType;
+import com.holisun.backend.exception.ClinicalServiceException;
 import com.holisun.backend.mapper.ClinicalServiceMapper;
 import com.holisun.backend.repository.ClinicalServiceRepository;
 import com.holisun.backend.repository.EquipmentTypeRepository;
