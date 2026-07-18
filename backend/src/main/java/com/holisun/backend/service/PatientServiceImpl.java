@@ -14,9 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -29,25 +27,50 @@ public class PatientServiceImpl implements PatientService {
 
 
     @Override
-    public List<PatientResponse> search(String keyword) {
-        List<Patient> patients;
-        if (keyword == null || keyword.isBlank()) {
-            patients = repo.findAll();
-        } else if (keyword.matches("\\d{13}")) {
+    public List<PatientResponse> search(String search) {
 
-            patients = repo
-                    .findByCnpHash(CnpHasher.hash(keyword))
-                    .map(List::of)
-                    .orElse(List.of());
+        if (isCnp(search)) {
 
-        } else {
-            patients = repo.searchByNameOrPhoneOrCnp(keyword);
+            String hash = CnpHasher.hash(search);
+
+            Optional<Patient> patient = repo.findByCnpHash(hash);
+            if (patient.isEmpty()) {
+                log.warn("No patient with that cnp: {}", search);
+
+            }
+            return Collections.singletonList(mapper.patientToDto(patient.get()));
+
+        }
+
+        if (isPhone(search)) {
+            List<Patient> patients = repo.findByPhoneContaining(search);
+            List<PatientResponse> responses = new ArrayList<>();
+
+            for (Patient patient : patients) {
+                responses.add(mapper.patientToDto(patient));
+            }
+
+            return responses;
+
         }
 
 
-        return patients.stream()
-                .map(mapper::patientToDto)
-                .toList();
+        List<Patient> patients = repo.searchByName(search);
+        List<PatientResponse> responses = new ArrayList<>();
+
+        for (Patient patient : patients) {
+            responses.add(mapper.patientToDto(patient));
+        }
+
+        return responses;
+    }
+
+    private boolean isPhone(String value) {
+        return value.matches("\\d{7,15}");
+    }
+
+    private boolean isCnp(String value) {
+        return value.matches("\\d{13}");
     }
 
 

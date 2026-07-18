@@ -18,13 +18,14 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
     Optional<Patient> findByCnpHash(String cnpHash);
 
     @Query("""
-            SELECT p
-            FROM Patient p
-            WHERE LOWER(p.firstName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-               OR LOWER(p.lastName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-               OR p.phone LIKE CONCAT('%', :keyword, '%')
+                SELECT p FROM Patient p
+                WHERE LOWER(CONCAT(p.firstName, ' ', p.lastName))
+                      LIKE LOWER(CONCAT('%', :name, '%'))
             """)
-    List<Patient> searchByNameOrPhoneOrCnp(@Param("keyword") String keyword);
+    List<Patient> searchByName(String name);
+
+    List<Patient> findByPhoneContaining(String phone);
+
 
     Page<Patient> findByProfileCompleteFalse(Pageable pageable);
 
