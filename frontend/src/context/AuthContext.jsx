@@ -32,16 +32,21 @@ export function AuthProvider({ children }) {
 
     const login = useCallback(async (email, password) => {
         const data = await loginRequest(email, password);
-        // TODO: adapteaza numele campurilor cand backend-ul e gata (ex: data.accessToken, data.refreshToken, data.user)
         saveTokens(data.accessToken, data.refreshToken);
         setUser(data.user ?? null);
     }, [saveTokens]);
 
-    const logout = useCallback(() => {
-        logoutRequest(); // TODO: apel catre backend, optional
+    const logout = useCallback(async () => {
+        if (accessToken) {
+            try {
+                await logoutRequest(accessToken);
+            } catch (err) {
+                // ignoram eroarea - oricum stergem sesiunea local
+            }
+        }
         clearTokens();
         navigate("/login");
-    }, [clearTokens, navigate]);
+    }, [accessToken, clearTokens, navigate]);
 
     // Incearca sa reimprospateze token-ul; daca esueaza, delogheaza userul
     const tryRefresh = useCallback(async () => {
@@ -52,7 +57,6 @@ export function AuthProvider({ children }) {
 
         try {
             const data = await refreshTokenRequest(refreshToken);
-            // TODO: adapteaza numele campurilor cand backend-ul e gata
             saveTokens(data.accessToken, data.refreshToken);
             return data.accessToken;
         } catch (err) {

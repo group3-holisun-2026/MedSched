@@ -1,4 +1,4 @@
-package com.holisun.backend.service;
+package com.holisun.backend.exception;
 
 public class ClinicalServiceException extends RuntimeException {
     public ClinicalServiceException(String message) {
