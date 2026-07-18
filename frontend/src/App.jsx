@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import DoctorPage from './pages/Doctor/DoctorPage';
+import RoomsPage from './pages/Rooms/RoomsPage';
+import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -22,9 +25,17 @@ function Navbar() {
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
 
             {isAuthenticated && role === 'ADMINISTRATOR' && (
-                <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
-                    Administrare
-                </Link>
+                <>
+                    <Link to="/admin/doctors" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare Medici
+                    </Link>
+                    <Link to="/admin/rooms" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare Cabinete
+                    </Link>
+                    <Link to="/admin/equipment" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare Echipamente
+                    </Link>
+                </>
             )}
 
             {isAuthenticated && role === 'MEDIC' && (
@@ -66,6 +77,30 @@ function App() {
                             </PrivateRoute>
                         }
                     />
+                    <Route
+                        path="/admin/doctors"
+                        element={
+                            <PrivateRoute>
+                                <DoctorPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/admin/rooms"
+                        element={
+                            <PrivateRoute>
+                                <RoomsPage />
+                            </PrivateRoute>
+                        }
+                    /> *
+                    <Route
+                        path="/admin/equipment"
+                        element={
+                        <PrivateRoute>
+                            <EquipmentPage />
+                        </PrivateRoute>
+                    }
+                />
                 </Routes>
             </AuthProvider>
         </BrowserRouter>
