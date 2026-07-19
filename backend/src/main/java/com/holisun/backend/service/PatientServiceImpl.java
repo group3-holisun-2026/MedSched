@@ -29,6 +29,17 @@ public class PatientServiceImpl implements PatientService {
     @Override
     public List<PatientResponse> search(String search) {
 
+        if (search == null || search.isBlank()) {
+            List<Patient> patients = repo.findAll();
+            List<PatientResponse> responses = new ArrayList<>();
+
+            for (Patient patient : patients) {
+                responses.add(mapper.patientToDto(patient));
+            }
+
+            return responses;
+        }
+
         if (isCnp(search)) {
 
             String hash = CnpHasher.hash(search);

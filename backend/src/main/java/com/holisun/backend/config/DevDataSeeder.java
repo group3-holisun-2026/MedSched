@@ -60,10 +60,10 @@ public class DevDataSeeder implements CommandLineRunner {
 
         log.info("Seeding demo credentials and sample clinic data...");
 
-        User admin = createUser("admin", "admin@medsched.ro", "Admin123!", Role.ADMIN);
-        User doctorUser1 = createUser("dr.popescu", "dr.popescu@medsched.ro", "Doctor123!", Role.DOCTOR);
-        User doctorUser2 = createUser("dr.ionescu", "dr.ionescu@medsched.ro", "Doctor123!", Role.DOCTOR);
-        createUser("receptie", "receptie@medsched.ro", "Receptie123!", Role.RECEPTION);
+        User admin = createUser("seed-admin", "admin@medsched.ro", "Admin123!", Role.ADMIN);
+        User doctorUser1 = createUser("seed-dr-popescu", "dr.popescu@medsched.ro", "Doctor123!", Role.DOCTOR);
+        User doctorUser2 = createUser("seed-dr-ionescu", "dr.ionescu@medsched.ro", "Doctor123!", Role.DOCTOR);
+        createUser("seed-receptie", "receptie@medsched.ro", "Receptie123!", Role.RECEPTION);
 
         Doctor doctor1 = createDoctor(doctorUser1, "Cardiologie", 30);
         Doctor doctor2 = createDoctor(doctorUser2, "Pediatrie", 20);
