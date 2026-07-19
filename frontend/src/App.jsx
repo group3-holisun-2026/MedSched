@@ -3,6 +3,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
 import DoctorPage from './pages/Doctor/DoctorPage';
+import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -22,7 +23,7 @@ function Navbar() {
         <nav style={{ padding: '15px', background: '#2c3e50', marginBottom: '20px' }}>
             <Link to="/login" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Login</Link>
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
-            
+
             {/* Link temporar pentru a accesa usor pagina de testare fara sa fii logat ca Admin inca */}
             <Link to="/medici" style={{ marginRight: '20px', color: '#0ea5e9', fontWeight: 'bold', textDecoration: 'none' }}>
                 Pagina Medici
@@ -40,6 +41,9 @@ function Navbar() {
                     </Link>
                     <Link to="/admin/rooms" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                         Administrare Cabinete
+                    </Link>
+                    <Link to="/admin/equipment" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare Echipamente
                     </Link>
                 </>
             )}
@@ -75,7 +79,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<LoginPage />} />
                     <Route path="/login" element={<LoginPage />} />
-                    
+
                     {/* RUTA NOUĂ ADAUGATĂ PENTRU MEDICI */}
                     <Route path="/medici" element={<DoctorPage />} />
 
@@ -93,6 +97,14 @@ function App() {
                         element={
                             <PrivateRoute>
                                 <RoomsPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/admin/equipment"
+                        element={
+                            <PrivateRoute>
+                                <EquipmentPage />
                             </PrivateRoute>
                         }
                     />
