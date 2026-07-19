@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import PatientPage from './pages/Patient/PatientPage';
+import AuditLogPage from './pages/AuditLog/AuditLogPage';
+import ConsultationRecordPage from './pages/Consultation/ConsultationRecordPage';
 import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
 import DoctorPage from './pages/Doctor/DoctorPage';
 import EquipmentPage from './pages/Equipment/EquipmentPage';
@@ -16,13 +19,13 @@ function Navbar() {
         navigate('/login');
     };
 
-    // TODO: confirma cu Ianis numele exact al campului de rol (user.role?) si valorile posibile (ADMIN, MEDIC, RECEPTIONIST?)
     const role = user?.role;
 
     return (
         <nav style={{ padding: '15px', background: '#2c3e50', marginBottom: '20px' }}>
             <Link to="/login" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Login</Link>
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
+            <Link to="/patients" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Pacienti</Link>
 
             {/* Link temporar pentru a accesa usor pagina de testare fara sa fii logat ca Admin inca */}
             <Link to="/medici" style={{ marginRight: '20px', color: '#0ea5e9', fontWeight: 'bold', textDecoration: 'none' }}>
@@ -34,7 +37,7 @@ function Navbar() {
                 Pagina Cabinete
             </Link>
 
-            {isAuthenticated && role === 'ADMINISTRATOR' && (
+            {isAuthenticated && role === 'ADMIN' && (
                 <>
                     <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                         Administrare
@@ -45,16 +48,19 @@ function Navbar() {
                     <Link to="/admin/equipment" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                         Administrare Echipamente
                     </Link>
+                    <Link to="/audit-log" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Audit Log
+                    </Link>
                 </>
             )}
 
-            {isAuthenticated && role === 'MEDIC' && (
+            {isAuthenticated && role === 'DOCTOR' && (
                 <Link to="/doctor" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                     Program Medic
                 </Link>
             )}
 
-            {isAuthenticated && role === 'RECEPTIONIST' && (
+            {isAuthenticated && role === 'RECEPTION' && (
                 <Link to="/receptie" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                     Receptie
                 </Link>
@@ -88,6 +94,30 @@ function App() {
                         element={
                             <PrivateRoute>
                                 <DashboardPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/patients"
+                        element={
+                            <PrivateRoute>
+                                <PatientPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/audit-log"
+                        element={
+                            <PrivateRoute>
+                                <AuditLogPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/appointments/:appointmentId/record"
+                        element={
+                            <PrivateRoute>
+                                <ConsultationRecordPage />
                             </PrivateRoute>
                         }
                     />
