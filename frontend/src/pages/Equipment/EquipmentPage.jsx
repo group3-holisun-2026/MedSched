@@ -4,9 +4,8 @@ import EquipmentForm from './EquipmentForm';
 import Modal from '../../components/Modal';
 import Button from '../../components/Button';
 
-// TODO: Verifică dacă calea către fișierele tale de API este corectă
-import { equipmentApi } from '../../api/equipment'; 
-import { roomApi } from '../../api/room'; 
+import { equipmentApi } from '../../api/equipment';
+import { roomApi } from '../../api/rooms';
 
 const EquipmentPage = () => {
   // Stările pentru date
@@ -60,11 +59,10 @@ const EquipmentPage = () => {
   // Handler pentru trimiterea datelor către backend
   const handleSave = async (formData) => {
     try {
-      // Convertim string-urile din <select> în numere pentru backend
       const dataToSave = {
         ...formData,
-        equipmentTypeId: Number(formData.equipmentTypeId),
-        roomId: formData.roomId ? Number(formData.roomId) : null
+        equipmentTypeId: formData.equipmentTypeId,
+        roomId: formData.roomId || null
       };
 
       if (selectedEquipment) {
