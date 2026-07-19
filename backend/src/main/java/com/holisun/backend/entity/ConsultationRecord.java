@@ -27,7 +27,7 @@ public class ConsultationRecord {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "appointment_id", nullable = false, unique = true)
+    @Column(name = "appointment_id", nullable = false)
     private UUID appointmentId;
 
     @Column(name = "presentation_motive", columnDefinition = "TEXT")
