@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import DoctorPage from './pages/Doctor/DoctorPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -20,6 +21,11 @@ function Navbar() {
         <nav style={{ padding: '15px', background: '#2c3e50', marginBottom: '20px' }}>
             <Link to="/login" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Login</Link>
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
+            
+            {/* Link temporar pentru a accesa usor pagina de testare fara sa fii logat ca Admin inca */}
+            <Link to="/medici" style={{ marginRight: '20px', color: '#0ea5e9', fontWeight: 'bold', textDecoration: 'none' }}>
+                Pagina Medici
+            </Link>
 
             {isAuthenticated && role === 'ADMINISTRATOR' && (
                 <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
@@ -58,6 +64,10 @@ function App() {
                 <Routes>
                     <Route path="/" element={<LoginPage />} />
                     <Route path="/login" element={<LoginPage />} />
+                    
+                    {/* RUTA NOUĂ ADAUGATĂ PENTRU MEDICI */}
+                    <Route path="/medici" element={<DoctorPage />} />
+
                     <Route
                         path="/dashboard"
                         element={
