@@ -24,7 +24,7 @@ CREATE TABLE consultation_records
     CONSTRAINT pk_consultation_records PRIMARY KEY (id)
 );
 
-CREATE TABLE patient
+CREATE TABLE patients
 (
     id               UUID         NOT NULL,
     first_name       VARCHAR(100) NOT NULL,
@@ -38,14 +38,14 @@ CREATE TABLE patient
     medical_history  TEXT,
     profile_complete BOOLEAN      NOT NULL,
     created_at       TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    CONSTRAINT pk_patient PRIMARY KEY (id)
+    CONSTRAINT pk_patients PRIMARY KEY (id)
 );
 
 ALTER TABLE consultation_records
     ADD CONSTRAINT uc_consultation_records_appointment_id UNIQUE (appointment_id);
 
-ALTER TABLE patient
-    ADD CONSTRAINT uc_patient_cnp_hash UNIQUE (cnp_hash);
+ALTER TABLE patients
+    ADD CONSTRAINT uc_patients_cnp_hash UNIQUE (cnp_hash);
 
 ALTER TABLE work_schedules
 ALTER
