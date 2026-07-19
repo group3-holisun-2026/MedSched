@@ -16,6 +16,7 @@ public class AuditLog {
     private UUID id;
 
     @Column(nullable = false)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false, unique = true)
     private UUID userId;
 
     @Column(nullable = false)

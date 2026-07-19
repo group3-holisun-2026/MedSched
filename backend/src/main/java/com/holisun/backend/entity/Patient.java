@@ -4,6 +4,7 @@ import com.holisun.backend.util.AesEncryptionUtil;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,7 +14,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @Getter
 @Setter
-@Table(name = "patients")
+@Table(name = "patients", indexes = {
+        @Index(name = "idx_patients_profile_complete", columnList = "profile_complete")
+})
 public class Patient {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -47,11 +50,12 @@ public class Patient {
     @Column(name = "medical_history", nullable = true, columnDefinition = "TEXT")
     private String medicalHistory;
 
-    @Column(name = "profile_complete", nullable = false)
+    @Column(name = "profile_complete", nullable = false, columnDefinition = "boolean default false")
     private Boolean profileComplete = false;
 
     @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
+    @CreationTimestamp
+    private LocalDateTime createdAt = LocalDateTime.now();
 
 
     @PrePersist
