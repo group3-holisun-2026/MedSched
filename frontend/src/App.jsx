@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
 import DoctorPage from './pages/Doctor/DoctorPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -27,10 +28,20 @@ function Navbar() {
                 Pagina Medici
             </Link>
 
+            {/* Link temporar pentru testare Cabinete */}
+            <Link to="/admin/rooms" style={{ marginRight: '20px', color: '#ff6b6b', fontWeight: 'bold' }}>
+                Pagina Cabinete
+            </Link>
+
             {isAuthenticated && role === 'ADMINISTRATOR' && (
-                <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
-                    Administrare
-                </Link>
+                <>
+                    <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare
+                    </Link>
+                    <Link to="/admin/rooms" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare Cabinete
+                    </Link>
+                </>
             )}
 
             {isAuthenticated && role === 'MEDIC' && (
@@ -73,6 +84,15 @@ function App() {
                         element={
                             <PrivateRoute>
                                 <DashboardPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    {/* Ruta pentru Cabinete */}
+                    <Route
+                        path="/admin/rooms"
+                        element={
+                            <PrivateRoute>
+                                <RoomsPage />
                             </PrivateRoute>
                         }
                     />
