@@ -14,9 +14,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @Getter
 @Setter
-@Table(name = "patients", indexes = {
-        @Index(name = "idx_patients_profile_complete", columnList = "profile_complete")
-})
 public class Patient {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -50,12 +47,11 @@ public class Patient {
     @Column(name = "medical_history", nullable = true, columnDefinition = "TEXT")
     private String medicalHistory;
 
-    @Column(name = "profile_complete", nullable = false, columnDefinition = "boolean default false")
+    @Column(name = "profile_complete", nullable = false)
     private Boolean profileComplete = false;
 
     @Column(name = "created_at", nullable = false)
-    @CreationTimestamp
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
 
     @PrePersist
