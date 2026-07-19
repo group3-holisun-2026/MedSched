@@ -1,0 +1,79 @@
+### Get all patients
+GET http://localhost:8080/api/patients
+
+###
+
+### Search patients by name
+GET http://localhost:8080/api/patients?search=Popescu
+
+###
+
+### Search patient by phone
+GET http://localhost:8080/api/patients?search=0712345678
+
+###
+
+### Search patient by CNP
+# (Will work once CnpHasher is integrated)
+GET http://localhost:8080/api/patients?search=1234567890123
+
+###
+
+### Get patient by ID
+GET http://localhost:8080/api/patients/550e8400-e29b-41d4-a716-446655440000
+
+###
+
+### Create patient (Quick Create)
+POST http://localhost:8080/api/patients
+Content-Type: application/json
+
+{
+  "firstName": "Ion",
+  "lastName": "Popescu",
+  "phone": "0712345678"
+}
+
+###
+
+### Update patient (Complete Profile)
+PUT http://localhost:8080/api/patients/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "firstName": "Ion",
+  "lastName": "Popescu",
+  "phone": "0712345678",
+  "cnp": "1234567890123",
+  "dateOfBirth": "1995-05-15",
+  "email": "ion.popescu@email.com",
+  "allergies": "Penicillin",
+  "medicalHistory": "None"
+}
+
+###
+
+### Get incomplete patients
+GET http://localhost:8080/api/patients/incomplete
+
+###
+
+### Search incomplete patients
+GET http://localhost:8080/api/patients/incomplete?search=Popescu
+
+###
+
+### Get incomplete patients sorted by last name
+GET http://localhost:8080/api/patients/incomplete?sort=lastName,asc
+
+###
+
+### Get incomplete patients sorted by creation date descending
+GET http://localhost:8080/api/patients/incomplete?sort=createdAt,desc
+
+###
+
+### Get incomplete patients (page 0, size 5)
+GET http://localhost:8080/api/patients/incomplete?page=0&size=5
+
+###

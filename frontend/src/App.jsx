@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
 import DoctorPage from './pages/Doctor/DoctorPage';
-import RoomsPage from './pages/Rooms/RoomsPage';
 import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -24,10 +24,20 @@ function Navbar() {
             <Link to="/login" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Login</Link>
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
 
+            {/* Link temporar pentru a accesa usor pagina de testare fara sa fii logat ca Admin inca */}
+            <Link to="/medici" style={{ marginRight: '20px', color: '#0ea5e9', fontWeight: 'bold', textDecoration: 'none' }}>
+                Pagina Medici
+            </Link>
+
+            {/* Link temporar pentru testare Cabinete */}
+            <Link to="/admin/rooms" style={{ marginRight: '20px', color: '#ff6b6b', fontWeight: 'bold' }}>
+                Pagina Cabinete
+            </Link>
+
             {isAuthenticated && role === 'ADMINISTRATOR' && (
                 <>
-                    <Link to="/admin/doctors" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
-                        Administrare Medici
+                    <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare
                     </Link>
                     <Link to="/admin/rooms" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                         Administrare Cabinete
@@ -69,6 +79,10 @@ function App() {
                 <Routes>
                     <Route path="/" element={<LoginPage />} />
                     <Route path="/login" element={<LoginPage />} />
+
+                    {/* RUTA NOUĂ ADAUGATĂ PENTRU MEDICI */}
+                    <Route path="/medici" element={<DoctorPage />} />
+
                     <Route
                         path="/dashboard"
                         element={
@@ -77,14 +91,7 @@ function App() {
                             </PrivateRoute>
                         }
                     />
-                    <Route
-                        path="/admin/doctors"
-                        element={
-                            <PrivateRoute>
-                                <DoctorPage />
-                            </PrivateRoute>
-                        }
-                    />
+                    {/* Ruta pentru Cabinete */}
                     <Route
                         path="/admin/rooms"
                         element={
@@ -92,15 +99,15 @@ function App() {
                                 <RoomsPage />
                             </PrivateRoute>
                         }
-                    /> *
+                    />
                     <Route
                         path="/admin/equipment"
                         element={
-                        <PrivateRoute>
-                            <EquipmentPage />
-                        </PrivateRoute>
-                    }
-                />
+                            <PrivateRoute>
+                                <EquipmentPage />
+                            </PrivateRoute>
+                        }
+                    />
                 </Routes>
             </AuthProvider>
         </BrowserRouter>
