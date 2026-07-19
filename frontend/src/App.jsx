@@ -21,26 +21,23 @@ function Navbar() {
 
     const role = user?.role;
 
+    if (!isAuthenticated) {
+        return (
+            <nav style={{ padding: '15px', background: '#2c3e50', marginBottom: '20px' }}>
+                <Link to="/login" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Login</Link>
+            </nav>
+        );
+    }
+
     return (
         <nav style={{ padding: '15px', background: '#2c3e50', marginBottom: '20px' }}>
-            <Link to="/login" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Login</Link>
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
             <Link to="/patients" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Pacienti</Link>
 
-            {/* Link temporar pentru a accesa usor pagina de testare fara sa fii logat ca Admin inca */}
-            <Link to="/medici" style={{ marginRight: '20px', color: '#0ea5e9', fontWeight: 'bold', textDecoration: 'none' }}>
-                Pagina Medici
-            </Link>
-
-            {/* Link temporar pentru testare Cabinete */}
-            <Link to="/admin/rooms" style={{ marginRight: '20px', color: '#ff6b6b', fontWeight: 'bold' }}>
-                Pagina Cabinete
-            </Link>
-
-            {isAuthenticated && role === 'ADMIN' && (
+            {role === 'ADMIN' && (
                 <>
-                    <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
-                        Administrare
+                    <Link to="/medici" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare Medici
                     </Link>
                     <Link to="/admin/rooms" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
                         Administrare Cabinete
@@ -54,23 +51,9 @@ function Navbar() {
                 </>
             )}
 
-            {isAuthenticated && role === 'DOCTOR' && (
-                <Link to="/doctor" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
-                    Program Medic
-                </Link>
-            )}
-
-            {isAuthenticated && role === 'RECEPTION' && (
-                <Link to="/receptie" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
-                    Receptie
-                </Link>
-            )}
-
-            {isAuthenticated && (
-                <button onClick={handleLogout} style={{ marginLeft: '10px' }}>
-                    Logout
-                </button>
-            )}
+            <button onClick={handleLogout} style={{ marginLeft: '10px' }}>
+                Logout
+            </button>
         </nav>
     );
 }
@@ -86,9 +69,6 @@ function App() {
                     <Route path="/" element={<LoginPage />} />
                     <Route path="/login" element={<LoginPage />} />
 
-                    {/* RUTA NOUĂ ADAUGATĂ PENTRU MEDICI */}
-                    <Route path="/medici" element={<DoctorPage />} />
-
                     <Route
                         path="/dashboard"
                         element={
@@ -100,7 +80,7 @@ function App() {
                     <Route
                         path="/patients"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute roles={['ADMIN', 'DOCTOR', 'RECEPTION']}>
                                 <PatientPage />
                             </PrivateRoute>
                         }
@@ -108,7 +88,7 @@ function App() {
                     <Route
                         path="/audit-log"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute roles={['ADMIN']}>
                                 <AuditLogPage />
                             </PrivateRoute>
                         }
@@ -116,16 +96,23 @@ function App() {
                     <Route
                         path="/appointments/:appointmentId/record"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute roles={['ADMIN', 'DOCTOR']}>
                                 <ConsultationRecordPage />
                             </PrivateRoute>
                         }
                     />
-                    {/* Ruta pentru Cabinete */}
+                    <Route
+                        path="/medici"
+                        element={
+                            <PrivateRoute roles={['ADMIN']}>
+                                <DoctorPage />
+                            </PrivateRoute>
+                        }
+                    />
                     <Route
                         path="/admin/rooms"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute roles={['ADMIN']}>
                                 <RoomsPage />
                             </PrivateRoute>
                         }
@@ -133,7 +120,7 @@ function App() {
                     <Route
                         path="/admin/equipment"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute roles={['ADMIN']}>
                                 <EquipmentPage />
                             </PrivateRoute>
                         }

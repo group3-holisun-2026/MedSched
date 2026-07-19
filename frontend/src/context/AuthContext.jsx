@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginRequest, refreshTokenRequest, logoutRequest } from "../api/api";
+import { loginRequest, refreshTokenRequest, logoutRequest, meRequest } from "../api/api";
 
 const AuthContext = createContext(null);
 
@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
     const [accessToken, setAccessToken] = useState(() => localStorage.getItem("accessToken"));
     const [refreshToken, setRefreshToken] = useState(() => localStorage.getItem("refreshToken"));
     const [user, setUser] = useState(null);
+    const [userLoading, setUserLoading] = useState(() => !!localStorage.getItem("accessToken"));
     const navigate = useNavigate();
 
     const isAuthenticated = !!accessToken;
@@ -66,6 +67,43 @@ export function AuthProvider({ children }) {
         }
     }, [refreshToken, saveTokens, logout]);
 
+    // La montare, daca exista deja un token (ex. refresh de pagina), reincarcam profilul
+    // userului curent - altfel role-ul ramane necunoscut pana la urmatorul login().
+    useEffect(() => {
+        if (!accessToken) {
+            setUserLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadUser = async (token) => {
+            try {
+                const data = await meRequest(token);
+                if (!cancelled) setUser(data);
+            } catch (err) {
+                const newToken = await tryRefresh();
+                if (newToken && !cancelled) {
+                    try {
+                        const data = await meRequest(newToken);
+                        if (!cancelled) setUser(data);
+                    } catch (innerErr) {
+                        // tryRefresh a esuat deja delogarea la nevoie
+                    }
+                }
+            } finally {
+                if (!cancelled) setUserLoading(false);
+            }
+        };
+
+        loadUser(accessToken);
+
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Wrapper de fetch care adauga automat token-ul si reincearca dupa refresh, la nevoie
     const authFetch = useCallback(async (url, options = {}) => {
         const doFetch = (token) =>
@@ -91,7 +129,7 @@ export function AuthProvider({ children }) {
     }, [accessToken, tryRefresh]);
 
     return (
-        <AuthContext.Provider value={{ user, isAuthenticated, accessToken, login, logout, authFetch }}>
+        <AuthContext.Provider value={{ user, userLoading, isAuthenticated, accessToken, login, logout, authFetch }}>
             {children}
         </AuthContext.Provider>
     );
