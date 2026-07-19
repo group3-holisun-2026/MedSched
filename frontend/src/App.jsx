@@ -4,6 +4,9 @@ import DashboardPage from './pages/DashboardPage';
 import PatientPage from './pages/Patient/PatientPage';
 import AuditLogPage from './pages/AuditLog/AuditLogPage';
 import ConsultationRecordPage from './pages/Consultation/ConsultationRecordPage';
+import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
+import DoctorPage from './pages/Doctor/DoctorPage';
+import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -24,16 +27,31 @@ function Navbar() {
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
             <Link to="/patients" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Pacienti</Link>
 
-            {isAuthenticated && role === 'ADMIN' && (
-                <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
-                    Administrare
-                </Link>
-            )}
+            {/* Link temporar pentru a accesa usor pagina de testare fara sa fii logat ca Admin inca */}
+            <Link to="/medici" style={{ marginRight: '20px', color: '#0ea5e9', fontWeight: 'bold', textDecoration: 'none' }}>
+                Pagina Medici
+            </Link>
+
+            {/* Link temporar pentru testare Cabinete */}
+            <Link to="/admin/rooms" style={{ marginRight: '20px', color: '#ff6b6b', fontWeight: 'bold' }}>
+                Pagina Cabinete
+            </Link>
 
             {isAuthenticated && role === 'ADMIN' && (
-                <Link to="/audit-log" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
-                    Audit Log
-                </Link>
+                <>
+                    <Link to="/admin" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare
+                    </Link>
+                    <Link to="/admin/rooms" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare Cabinete
+                    </Link>
+                    <Link to="/admin/equipment" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Administrare Echipamente
+                    </Link>
+                    <Link to="/audit-log" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>
+                        Audit Log
+                    </Link>
+                </>
             )}
 
             {isAuthenticated && role === 'DOCTOR' && (
@@ -67,6 +85,10 @@ function App() {
                 <Routes>
                     <Route path="/" element={<LoginPage />} />
                     <Route path="/login" element={<LoginPage />} />
+
+                    {/* RUTA NOUĂ ADAUGATĂ PENTRU MEDICI */}
+                    <Route path="/medici" element={<DoctorPage />} />
+
                     <Route
                         path="/dashboard"
                         element={
@@ -96,6 +118,23 @@ function App() {
                         element={
                             <PrivateRoute>
                                 <ConsultationRecordPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    {/* Ruta pentru Cabinete */}
+                    <Route
+                        path="/admin/rooms"
+                        element={
+                            <PrivateRoute>
+                                <RoomsPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/admin/equipment"
+                        element={
+                            <PrivateRoute>
+                                <EquipmentPage />
                             </PrivateRoute>
                         }
                     />
