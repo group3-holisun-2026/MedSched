@@ -1,0 +1,42 @@
+### 1. Login pentru a obține un token (Token-ul va fi folosit în request-urile de mai jos)
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "medic@holisun.com",
+  "password": "parola123"
+}
+
+### (După ce rulezi request-ul de mai sus, copiază token-ul din răspuns)
+
+###
+
+### 2. Get all patients (Test securitate)
+GET http://localhost:8080/api/patients
+Authorization: Bearer {{token_de_la_login}}
+
+###
+
+### 3. Create a new consultation (Test securitate + Audit)
+# Acesta va declanșa AuditLoggingAspect (dacă metoda din controller are @Audited)
+POST http://localhost:8080/api/consultations
+Content-Type: application/json
+Authorization: Bearer {{token_de_la_login}}
+
+{
+  "patientId": "550e8400-e29b-41d4-a716-446655440000",
+  "diagnosis": "Consultatie de rutina",
+  "details": "Pacient stabil."
+}
+
+###
+
+### 4. Get specific consultation (Test Audit)
+GET http://localhost:8080/api/consultations/550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer {{token_de_la_login}}
+
+###
+
+### 5. Verificare log-uri audit (P3 - doar pentru admin)
+GET http://localhost:8080/api/audit-logs
+Authorization: Bearer {{token_de_la_login}}
