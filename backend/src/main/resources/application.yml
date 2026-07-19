@@ -17,3 +17,5 @@ app:
     secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32-bytes-minimum}
     access-token-expiration-ms: 900000 # 15 minute
     refresh-token-expiration-ms: 604800000 # 7 zile
+  encryption:
+    secret: "1234567890123456" # 16 caractere necesare pentru AES
