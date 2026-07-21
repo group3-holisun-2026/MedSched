@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { toast } from 'sonner';
+import { useToast } from '../../context/ToastContext'; 
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 
-// Importurile catre API-uri
 import { serviceApi } from '../../api/services';
-import { patientApi } from '../../api/patients';
 import { doctorApi } from '../../api/doctors';
 import { roomApi } from '../../api/rooms';
 import { appointmentApi } from '../../api/appointments';
+import { getPatientsRequest, quickCreatePatientRequest } from '../../api/patients';
 
 const AppointmentForm = ({ initialData, onSave, onCancel }) => {
+  const { toast } = useToast();
+  
+  // Preluăm token-ul pentru funcțiile care nu folosesc apiClient
+  const token = localStorage.getItem('token') || '';
+
   const [formData, setFormData] = useState({
     patientId: '',
     doctorId: '',
@@ -28,17 +32,20 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
 
   const [patientSearch, setPatientSearch] = useState('');
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
-  const [newPatientName, setNewPatientName] = useState('');
+  
+  const [newFirstName, setNewFirstName] = useState('');
+  const [newLastName, setNewLastName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
 
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
         const [patientsRes, docsRes, roomsRes, servRes] = await Promise.all([
-          patientApi.getAll().catch(() => [{id: 1, name: 'Ion Popescu', cnp: '1234567890123'}]),
-          doctorApi.getAll().catch(() => [{id: 1, firstName: 'Andrei', lastName: 'Ionescu'}]),
-          roomApi.getAll().catch(() => [{id: 1, name: 'Cabinet 1'}]),
-          serviceApi.getAll().catch(() => [{id: 1, name: 'Consultație Generală', defaultDurationMinutes: 30}])
+          getPatientsRequest(token).catch(() => []), // <-- AICI am adăugat token-ul
+          doctorApi.getAll().catch(() => []),
+          roomApi.getAll().catch(() => []),
+          serviceApi.getAll().catch(() => [])
         ]);
         
         setPatients(patientsRes);
@@ -57,14 +64,14 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
           });
         }
       } catch (error) {
-        toast.error("A apărut o problemă la preluarea datelor. Vă rugăm să reîncercați.");
+        toast({ type: 'error', message: "A apărut o problemă la preluarea datelor. Vă rugăm să reîncercați." });
       } finally {
         setLoading(false);
       }
     };
 
     fetchAllData();
-  }, [initialData]);
+  }, [initialData, toast, token]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -100,7 +107,12 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
       let finalPatientId = formData.patientId;
 
       if (showNewPatientForm) {
-        const newPatient = await patientApi.create({ name: newPatientName }); 
+        // <-- AICI am adăugat token-ul ca prim parametru
+        const newPatient = await quickCreatePatientRequest(token, { 
+            firstName: newFirstName, 
+            lastName: newLastName, 
+            phone: newPhone 
+        }); 
         finalPatientId = newPatient.id;
       }
 
@@ -115,24 +127,28 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
 
       if (initialData) {
         await appointmentApi.update(initialData.id, payload);
-        toast.success("Programarea a fost actualizată cu succes.");
+        toast({ type: 'success', message: "Programarea a fost actualizată cu succes." });
       } else {
         await appointmentApi.create(payload);
-        toast.success("Programarea a fost înregistrată cu succes în sistem.");
+        toast({ type: 'success', message: "Programarea a fost înregistrată cu succes în sistem." });
       }
       
       onSave && onSave();
     } catch (error) {
       if (error.response?.status === 409) {
-        toast.error(error.response.data?.message || "Conflict de programare: Medicul sau cabinetul selectat este indisponibil în acest interval.");
+        toast({ type: 'error', message: error.response.data?.message || "Conflict de programare: Medicul sau cabinetul selectat este indisponibil." });
       } else {
-        toast.error("Înregistrarea programării a eșuat. Vă rugăm să verificați datele și să reîncercați.");
+        toast({ type: 'error', message: "Înregistrarea programării a eșuat. Vă rugăm să verificați datele și să reîncercați." });
       }
     }
   };
 
   const filteredPatients = useMemo(() => {
-    return patients.filter(p => p.name?.toLowerCase().includes(patientSearch.toLowerCase()) || p.cnp?.includes(patientSearch));
+    return patients.filter(p => {
+        const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+        const searchLower = patientSearch.toLowerCase();
+        return fullName.includes(searchLower) || p.cnp?.includes(patientSearch);
+    });
   }, [patients, patientSearch]);
 
   if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Se preiau informațiile din sistem...</div>;
@@ -162,21 +178,39 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
             >
               <option value="" disabled>-- Vă rugăm să selectați pacientul --</option>
               {filteredPatients.map(p => (
-                <option key={p.id} value={p.id}>{p.name} {p.cnp ? `(${p.cnp})` : ''}</option>
+                <option key={p.id} value={p.id}>{p.firstName} {p.lastName} {p.cnp ? `(${p.cnp})` : ''}</option>
               ))}
               <option value="NEW" className="font-bold text-blue-600">+ Înregistrare pacient nou</option>
             </select>
           </div>
         ) : (
           <div className="space-y-2">
-            <input 
-              type="text" 
-              required
-              placeholder="Numele complet al pacientului" 
-              value={newPatientName}
-              onChange={(e) => setNewPatientName(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Prenume" 
+                  value={newFirstName}
+                  onChange={(e) => setNewFirstName(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Nume" 
+                  value={newLastName}
+                  onChange={(e) => setNewLastName(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+                <input 
+                  type="tel" 
+                  required
+                  placeholder="Telefon" 
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+            </div>
             <button type="button" onClick={() => setShowNewPatientForm(false)} className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors">
               Anulare înregistrare și revenire la căutare
             </button>
