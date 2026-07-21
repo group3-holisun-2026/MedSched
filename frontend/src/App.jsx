@@ -7,6 +7,7 @@ import ConsultationRecordPage from './pages/Consultation/ConsultationRecordPage'
 import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
 import DoctorPage from './pages/Doctor/DoctorPage';
 import EquipmentPage from './pages/Equipment/EquipmentPage';
+import CalendarPage from './pages/Calendar/CalendarPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -33,6 +34,7 @@ function Navbar() {
         <nav style={{ padding: '15px', background: '#2c3e50', marginBottom: '20px' }}>
             <Link to="/dashboard" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Dashboard</Link>
             <Link to="/patients" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Pacienti</Link>
+            <Link to="/calendar" style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}>Calendar</Link>
 
             {role === 'ADMIN' && (
                 <>
@@ -122,6 +124,14 @@ function App() {
                         element={
                             <PrivateRoute roles={['ADMIN']}>
                                 <EquipmentPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/calendar"
+                        element={
+                            <PrivateRoute roles={['ADMIN', 'DOCTOR', 'RECEPTION']}>
+                                <CalendarPage />
                             </PrivateRoute>
                         }
                     />
