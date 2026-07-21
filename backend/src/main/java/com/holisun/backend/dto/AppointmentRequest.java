@@ -15,5 +15,6 @@ public record AppointmentRequest(
     @NotNull
     UUID serviceId,
     @NotNull
-    LocalDateTime startTime
+    LocalDateTime startTime,
+    String notes
 ){}
