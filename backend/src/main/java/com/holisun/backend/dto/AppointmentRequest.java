@@ -1,28 +1,19 @@
 package com.holisun.backend.dto;
 
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
-@NoArgsConstructor
-@AllArgsConstructor
-@Data
-public class AppointmentRequest {
+public record AppointmentRequest(
     @NotNull
-    private UUID patientId;
-
+    UUID patientId,
     @NotNull
-    private UUID doctorId;
-
+    UUID doctorId,
     @NotNull
-    private UUID roomId;
-
+    UUID roomId,
     @NotNull
-    private UUID serviceId;
-
+    UUID serviceId,
     @NotNull
-    private UUID startTime;
-}
+    LocalDateTime startTime
+){}
