@@ -1,4 +1,24 @@
 package com.holisun.backend.dto;
 
-public class AppointmentResponse {
-}
+import com.holisun.backend.dto.summary.*;
+import com.holisun.backend.enums.AppointmentStatus;
+import jakarta.validation.constraints.NotNull;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record AppointmentResponse(
+        UUID id,
+        PatientSummary patient,
+        DoctorSummary doctor,
+        RoomSummary room,
+        ServiceSummary service,
+        EquipmentSummary equipment, // This might be null, which is perfectly fine in JSON
+        LocalDateTime startTime,
+        LocalDateTime endTime,
+        AppointmentStatus status,
+        String notes,
+        long version,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
+) {}
