@@ -9,8 +9,11 @@ import endOfDay from "date-fns/endOfDay";
 import getDay from "date-fns/getDay";
 import ro from "date-fns/locale/ro";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { getCalendarAppointments } from "../../api/appointments";
+import { appointmentApi } from "../../api/appointments";
 import Modal from "../../components/Modal";
+import Button from "../../components/Button";
+import AppointmentForm from "./AppointmentForm";
+import { toast } from "sonner";
 
 const locales = { ro };
 
@@ -44,9 +47,10 @@ export default function CalendarPage() {
     const [error, setError] = useState(null);
     const pollingRef = useRef(null);
 
-    const [modalMode, setModalMode] = useState(null);
+    const [modalMode, setModalMode] = useState(null); // "create" | "details" | null
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [cancelling, setCancelling] = useState(false);
 
     const fetchAppointments = useCallback(async () => {
         const from = view === "day" ? startOfDay(date) : startOfWeek(date, { locale: ro });
@@ -105,6 +109,37 @@ export default function CalendarPage() {
         setSelectedEvent(null);
     }
 
+    function handleFormSaved() {
+        closeModal();
+        fetchAppointments();
+    }
+
+    async function handleCancelAppointment() {
+        if (!selectedEvent) return;
+        setCancelling(true);
+        try {
+            await appointmentApi.cancel(selectedEvent.id);
+            toast.success("Programarea a fost anulata.");
+            closeModal();
+            fetchAppointments();
+        } catch (err) {
+            toast.error("Anularea a esuat. Incercati din nou.");
+        } finally {
+            setCancelling(false);
+        }
+    }
+
+    // Pre-completeaza formularul cu datele evenimentului selectat, pentru reprogramare
+    function handleEditFromDetails() {
+        const raw = selectedEvent.raw;
+        setSelectedSlot({
+            start: new Date(raw.startTime),
+            end: new Date(raw.endTime),
+            initialData: raw,
+        });
+        setModalMode("edit");
+    }
+
     return (
         <div style={{ padding: "20px", height: "80vh" }}>
             <h1>Calendar Programari</h1>
@@ -129,15 +164,29 @@ export default function CalendarPage() {
                 eventPropGetter={eventStyleGetter}
             />
 
+            {/* Modal creare programare */}
             <Modal isOpen={modalMode === "create"} onClose={closeModal} title="Programare noua">
-                {selectedSlot && (
-                    <p>
-                        Interval selectat: {format(selectedSlot.start, "dd.MM.yyyy HH:mm")} —{" "}
-                        {format(selectedSlot.end, "HH:mm")}
-                    </p>
-                )}
+                <AppointmentForm
+                    initialData={
+                        selectedSlot
+                            ? { startTime: selectedSlot.start.toISOString() }
+                            : null
+                    }
+                    onSave={handleFormSaved}
+                    onCancel={closeModal}
+                />
             </Modal>
 
+            {/* Modal reprogramare (editare) */}
+            <Modal isOpen={modalMode === "edit"} onClose={closeModal} title="Reprogramare">
+                <AppointmentForm
+                    initialData={selectedSlot?.initialData}
+                    onSave={handleFormSaved}
+                    onCancel={closeModal}
+                />
+            </Modal>
+
+            {/* Modal detalii programare */}
             <Modal isOpen={modalMode === "details"} onClose={closeModal} title="Detalii programare">
                 {selectedEvent && (
                     <div>
@@ -147,6 +196,21 @@ export default function CalendarPage() {
                             {format(selectedEvent.start, "dd.MM.yyyy HH:mm")} —{" "}
                             {format(selectedEvent.end, "HH:mm")}
                         </p>
+
+                        {selectedEvent.status !== "CANCELLED" && selectedEvent.status !== "COMPLETED" && (
+                            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+                                <Button variant="outline" onClick={handleEditFromDetails}>
+                                    Reprogrameaza
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleCancelAppointment}
+                                    disabled={cancelling}
+                                >
+                                    {cancelling ? "Se anuleaza..." : "Anuleaza programarea"}
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal>
