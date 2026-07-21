@@ -13,7 +13,7 @@ public record AppointmentResponse(
         DoctorSummary doctor,
         RoomSummary room,
         ServiceSummary service,
-        EquipmentSummary equipment, // This might be null, which is perfectly fine in JSON
+        EquipmentSummary equipment,
         LocalDateTime startTime,
         LocalDateTime endTime,
         AppointmentStatus status,
