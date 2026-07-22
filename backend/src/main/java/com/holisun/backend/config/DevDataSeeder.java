@@ -25,7 +25,7 @@ import java.util.UUID;
  * so it is safe to leave enabled across repeated app restarts.
  */
 @Slf4j
-@Component
+//@Component
 @Profile("dev")
 public class DevDataSeeder implements CommandLineRunner {
 
