@@ -2,7 +2,6 @@ package com.holisun.backend.dto;
 
 import com.holisun.backend.dto.summary.*;
 import com.holisun.backend.enums.AppointmentStatus;
-import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
