@@ -41,6 +41,13 @@ function Navbar() {
                 Pacienti
             </Link>
 
+            <Link
+                to="/calendar"
+                style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}
+            >
+                Calendar
+            </Link>
+
             {role === 'ADMIN' && (
                 <>
                     <Link
