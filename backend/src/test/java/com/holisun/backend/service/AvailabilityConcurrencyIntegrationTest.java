@@ -5,6 +5,7 @@ import com.holisun.backend.entity.Doctor;
 import com.holisun.backend.entity.Patient;
 import com.holisun.backend.entity.Room;
 import com.holisun.backend.entity.User;
+import com.holisun.backend.enums.Role;
 import com.holisun.backend.repository.DoctorRepository;
 import com.holisun.backend.repository.PatientRepository;
 import com.holisun.backend.repository.RoomRepository;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
+@ActiveProfiles("test")
 public class AvailabilityConcurrencyIntegrationTest {
 
     @Autowired private AppointmentService appointmentService;
@@ -81,13 +84,13 @@ public class AvailabilityConcurrencyIntegrationTest {
     // --- METODE HELPER PENTRU GENERAREA DE DATE VALIDE ---
 
     private Doctor createTestDoctor() {
-        // Medicul cere obligatoriu un user.
         User user = new User();
         String randomSuffix = UUID.randomUUID().toString().substring(0, 5);
         user.setUsername("doc_" + randomSuffix);
         user.setEmail("doc_" + randomSuffix + "@test.com");
         user.setPasswordHash("Parola123!");
-        // Setează și alte câmpuri la user dacă mai are unele cu nullable=false
+        user.setRole(Role.DOCTOR);      // <-- Adăugat aici la cererea ei
+        user.setEnabled(true);          // <-- Asigurat că e activ
         user = userRepository.save(user);
 
         Doctor doctor = new Doctor();
