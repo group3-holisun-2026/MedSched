@@ -5,6 +5,8 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -75,6 +77,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> OptimisticLockingFailureException(OptimisticLockingFailureException ex, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, "Programarea a fost modificată între timp, reîncărcați și încercați din nou", request);
+    }
+
+    /**
+     * Plasa de siguranta pentru constrangerile EXCLUDE de la nivel de Postgres (vezi V7__.sql) —
+     * cazul in care doua tranzactii trec amandoua de AvailabilityValidatorService/
+     * EquipmentAllocationService (verificare Java) in aceeasi fereastra de timp; a doua e respinsa
+     * de DB la commit, nu de logica aplicatiei. Prinde si alte violari de integritate (unicitate etc.)
+     * — tratate tot ca 409, nu ca 500, pentru ca reprezinta un conflict cu date deja existente.
+     *
+     * CannotAcquireLockException e inclus separat pentru ca, verificat empiric, doua INSERT-uri
+     * concurente care se ciocnesc pe aceeasi constrangere EXCLUDE nu ajung mereu la o violare curata —
+     * Postgres poate raporta un deadlock real intre cele doua tranzactii cat timp verifica indexul GiST
+     * ("deadlock detected ... while checking exclusion constraint"), iar tranzactia aleasa victima
+     * primeste asta, nu un DataIntegrityViolationException. E acelasi rezultat de business (a doua
+     * cerere trebuie respinsa cu conflict, nu 500), doar alt tip de exceptie la nivel de driver.
+     */
+    @ExceptionHandler({DataIntegrityViolationException.class, CannotAcquireLockException.class})
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(RuntimeException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "Resursa selectată a fost ocupată chiar înainte de salvare — reîncercați.", request);
     }
 
     @Override
