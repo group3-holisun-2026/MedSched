@@ -85,3 +85,22 @@ export async function getIncompletePatientsRequest(accessToken, { search = "", s
 
     return response.json(); // Page<PatientResponse>
 }
+
+// ---- ADAPTOR pentru compatibilitate cu AppointmentForm.jsx (stil patientApi.getAll()/.create()) ----
+
+export const patientApi = {
+    getAll: async () => {
+        const patients = await getPatientsRequest(localStorage.getItem('accessToken'));
+        return patients.map((p) => ({ ...p, name: `${p.firstName} ${p.lastName}` }));
+    },
+    create: async ({ name }) => {
+        const [firstName, ...rest] = name.trim().split(' ');
+        const lastName = rest.join(' ') || firstName;
+        const created = await quickCreatePatientRequest(localStorage.getItem('accessToken'), {
+            firstName,
+            lastName,
+            phone: '',
+        });
+        return { ...created, name: `${created.firstName} ${created.lastName}` };
+    },
+};

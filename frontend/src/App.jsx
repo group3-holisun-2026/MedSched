@@ -1,13 +1,15 @@
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PatientPage from './pages/Patient/PatientPage';
+import CalendarPage from './pages/Calendar/CalendarPage';
 import AuditLogPage from './pages/AuditLog/AuditLogPage';
 import ConsultationRecordPage from './pages/Consultation/ConsultationRecordPage';
 import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
 import DoctorPage from './pages/Doctor/DoctorPage';
 import EquipmentPage from './pages/Equipment/EquipmentPage';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import CalendarPage from './pages/Calendar/CalendarPage';
+import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 
 function Navbar() {
@@ -86,6 +88,14 @@ function App() {
                         }
                     />
                     <Route
+                        path="/calendar"
+                        element={
+                            <PrivateRoute roles={['ADMIN', 'DOCTOR', 'RECEPTION']}>
+                                <CalendarPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
                         path="/audit-log"
                         element={
                             <PrivateRoute roles={['ADMIN']}>
@@ -122,6 +132,14 @@ function App() {
                         element={
                             <PrivateRoute roles={['ADMIN']}>
                                 <EquipmentPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/calendar"
+                        element={
+                            <PrivateRoute roles={['ADMIN', 'DOCTOR', 'RECEPTION']}>
+                                <CalendarPage />
                             </PrivateRoute>
                         }
                     />
