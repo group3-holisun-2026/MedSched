@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/medsched_test # Bază separată pentru teste
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: create-drop # Curăță baza de date după fiecare test
+  flyway:
+    enabled: false # Închidem Flyway la teste dacă folosim create-drop din Hibernate
