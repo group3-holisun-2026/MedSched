@@ -44,20 +44,23 @@ export default function CalendarPage() {
     const [date, setDate] = useState(new Date());
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [switchingView, setSwitchingView] = useState(false);
     const [error, setError] = useState(null);
+    const [pollFailCount, setPollFailCount] = useState(0);
     const pollingRef = useRef(null);
+    const isFirstLoad = useRef(true);
 
-    const [modalMode, setModalMode] = useState(null); // "create" | "details" | null
+    const [modalMode, setModalMode] = useState(null); // "create" | "edit" | "details" | null
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [cancelling, setCancelling] = useState(false);
 
-    const fetchAppointments = useCallback(async () => {
+    const fetchAppointments = useCallback(async ({ isPoll = false } = {}) => {
         const from = view === "day" ? startOfDay(date) : startOfWeek(date, { locale: ro });
         const to = view === "day" ? endOfDay(date) : endOfWeek(date, { locale: ro });
 
         try {
-            const data = await getCalendarAppointments({
+            const data = await appointmentApi.getCalendarAppointments({
                 from: from.toISOString(),
                 to: to.toISOString(),
             });
@@ -73,21 +76,35 @@ export default function CalendarPage() {
 
             setEvents(mapped);
             setError(null);
+            setPollFailCount(0);
         } catch (err) {
-            setError("Actualizarea a esuat, reincercam...");
+            if (isPoll) {
+                // La polling, nu bombardam userul cu erori repetate - doar incrementam contorul
+                setPollFailCount((prev) => prev + 1);
+            } else {
+                setError("Nu am putut incarca programarile. Reincercam...");
+            }
         } finally {
             setLoading(false);
+            setSwitchingView(false);
+            isFirstLoad.current = false;
         }
     }, [view, date]);
 
+    // Fetch initial + la schimbare vedere/data
     useEffect(() => {
-        setLoading(true);
+        if (isFirstLoad.current) {
+            setLoading(true);
+        } else {
+            setSwitchingView(true);
+        }
         fetchAppointments();
     }, [fetchAppointments]);
 
+    // Polling la fiecare 20s
     useEffect(() => {
         pollingRef.current = setInterval(() => {
-            fetchAppointments();
+            fetchAppointments({ isPoll: true });
         }, 20000);
 
         return () => clearInterval(pollingRef.current);
@@ -129,7 +146,6 @@ export default function CalendarPage() {
         }
     }
 
-    // Pre-completeaza formularul cu datele evenimentului selectat, pentru reprogramare
     function handleEditFromDetails() {
         const raw = selectedEvent.raw;
         setSelectedSlot({
@@ -144,25 +160,55 @@ export default function CalendarPage() {
         <div style={{ padding: "20px", height: "80vh" }}>
             <h1>Calendar Programari</h1>
 
+            {/* Eroare la incarcarea initiala/schimbare vedere - vizibila, cu retry implicit prin polling */}
             {error && <p style={{ color: "#c0392b" }}>{error}</p>}
-            {loading && <p>Se incarca...</p>}
 
-            <Calendar
-                localizer={localizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                view={view}
-                date={date}
-                onView={setView}
-                onNavigate={setDate}
-                views={["day", "week"]}
-                style={{ height: "100%" }}
-                selectable
-                onSelectSlot={handleSelectSlot}
-                onSelectEvent={handleSelectEvent}
-                eventPropGetter={eventStyleGetter}
-            />
+            {/* Eroare discreta la polling esuat repetat - nu bombardam cu toast la fiecare interval */}
+            {pollFailCount > 0 && !error && (
+                <p style={{ color: "#8a6d3b", fontSize: "0.85rem" }}>
+                    Ultima actualizare automata a esuat, reincercam...
+                </p>
+            )}
+
+            {/* Loading state: incarcare initiala */}
+            {loading && (
+                <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>
+                    Se incarca calendarul...
+                </div>
+            )}
+
+            {/* Loading state: schimbare vedere/data, calendarul ramane vizibil dedesubt */}
+            {!loading && switchingView && (
+                <p style={{ color: "#666", fontSize: "0.9rem" }}>Se actualizeaza...</p>
+            )}
+
+            {!loading && (
+                <>
+                    <Calendar
+                        localizer={localizer}
+                        events={events}
+                        startAccessor="start"
+                        endAccessor="end"
+                        view={view}
+                        date={date}
+                        onView={setView}
+                        onNavigate={setDate}
+                        views={["day", "week"]}
+                        style={{ height: "100%" }}
+                        selectable
+                        onSelectSlot={handleSelectSlot}
+                        onSelectEvent={handleSelectEvent}
+                        eventPropGetter={eventStyleGetter}
+                    />
+
+                    {/* Empty state: nicio programare in intervalul vizualizat */}
+                    {events.length === 0 && !error && (
+                        <p style={{ textAlign: "center", color: "#999", marginTop: "12px" }}>
+                            Nicio programare in acest interval.
+                        </p>
+                    )}
+                </>
+            )}
 
             {/* Modal creare programare */}
             <Modal isOpen={modalMode === "create"} onClose={closeModal} title="Programare noua">
