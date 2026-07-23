@@ -8,6 +8,7 @@ import com.holisun.backend.mapper.AppointmentMapper;
 import com.holisun.backend.repository.*;
 import org.springframework.http.HttpStatus;
 import com.holisun.backend.entity.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +27,7 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final AppointmentMapper appointmentMapper;
 
+    @Transactional
     public AppointmentResponse create(AppointmentRequest dto) {
 
         Patient patient = patientRepository.findById(dto.patientId())
