@@ -73,7 +73,7 @@ class AppointmentControllerSecurityTest {
                         .with(authenticatedAs(loggedInUserId, "DOCTOR")))
                 .andExpect(status().isOk());
 
-        verify(calendarService).getForDoctor(ownDoctorId, any(), any());
+        verify(calendarService).getForDoctor(eq(ownDoctorId), any(), any());
         verify(calendarService, never()).getByDateRangeAndDoctors(any(), any(), any());
     }
 

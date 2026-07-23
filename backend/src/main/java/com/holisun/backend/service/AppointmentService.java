@@ -26,6 +26,8 @@ public class AppointmentService {
     private final EquipmentRepository equipmentRepository;
     private final AppointmentRepository appointmentRepository;
     private final AppointmentMapper appointmentMapper;
+    private final AvailabilityValidatorService availabilityValidatorService;
+    private final EquipmentAllocationService equipmentAllocationService;
 
     @Transactional
     public AppointmentResponse create(AppointmentRequest dto) {
@@ -44,15 +46,15 @@ public class AppointmentService {
 
         LocalDateTime endTime = dto.startTime().plusMinutes(service.getDefaultDurationMinutes());
 
-        // TODO(P2): AvailabilityValidatorService.validate(dto.doctorId(), dto.roomId(), dto.startTime(), endTime, null);
-        // TODO(P3): Equipment equipment = EquipmentAllocationService.allocate(service, dto.roomId(), dto.startTime(), endTime, null);
+        availabilityValidatorService.validate(dto.doctorId(), dto.roomId(), dto.startTime(), endTime, null);
+        Equipment equipment = equipmentAllocationService.allocate(service, dto.roomId(), dto.startTime(), endTime, null);
 
         Appointment newAppointment = new Appointment();
         newAppointment.setPatient(patient);
         newAppointment.setDoctor(doctor);
         newAppointment.setRoom(room);
         newAppointment.setService(service);
-        // newAppointment.setEquipment(equipment);
+        newAppointment.setEquipment(equipment);
         newAppointment.setStartTime(dto.startTime());
         newAppointment.setEndTime(endTime);
         newAppointment.setNotes(dto.notes());
@@ -62,6 +64,7 @@ public class AppointmentService {
         return appointmentMapper.toResponse(saved);
     }
 
+    @Transactional
     public AppointmentResponse update(UUID id, AppointmentRequest dto) {
 
         Appointment appointment = appointmentRepository.findById(id)
@@ -86,14 +89,14 @@ public class AppointmentService {
 
         LocalDateTime endTime = dto.startTime().plusMinutes(service.getDefaultDurationMinutes());
 
-        // TODO(P2): AvailabilityValidatorService.validate(dto.doctorId(), dto.roomId(), dto.startTime(), endTime, id);
-        // TODO(P3): Equipment equipment = EquipmentAllocationService.allocate(service, dto.roomId(), dto.startTime(), endTime, id);
+        availabilityValidatorService.validate(dto.doctorId(), dto.roomId(), dto.startTime(), endTime, id);
+        Equipment equipment = equipmentAllocationService.allocate(service, dto.roomId(), dto.startTime(), endTime, id);
 
         appointment.setPatient(patient);
         appointment.setDoctor(doctor);
         appointment.setRoom(room);
         appointment.setService(service);
-        // appointment.setEquipment(equipment);
+        appointment.setEquipment(equipment);
         appointment.setStartTime(dto.startTime());
         appointment.setEndTime(endTime);
         appointment.setNotes(dto.notes());
