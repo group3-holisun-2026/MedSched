@@ -60,7 +60,7 @@ public class AppointmentService {
         return appointmentMapper.toResponse(saved);
     }
 
-    AppointmentResponse update(UUID id, AppointmentRequest dto) {
+    public AppointmentResponse update(UUID id, AppointmentRequest dto) {
 
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
@@ -100,14 +100,14 @@ public class AppointmentService {
         return appointmentMapper.toResponse(saved);
     }
 
-    AppointmentResponse getById(UUID id) {
+    public AppointmentResponse getById(UUID id) {
         Appointment appointment = this.appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
 
         return appointmentMapper.toResponse(appointment);
     }
 
-    void cancel(UUID id){
+    public void cancel(UUID id){
         Appointment appointment = this.appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
 
