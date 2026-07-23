@@ -41,4 +41,25 @@ public class WorkScheduleValidator {
             }
         }
     }
+
+    public boolean isWithinSchedule(List<com.holisun.backend.entity.WorkSchedule> weeklySchedule, java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        if (weeklySchedule == null || weeklySchedule.isEmpty()) {
+            return false;
+        }
+
+
+        java.time.DayOfWeek requestedDay = start.getDayOfWeek();
+        java.time.LocalTime requestedStartTime = start.toLocalTime();
+        java.time.LocalTime requestedEndTime = end.toLocalTime();
+
+        return weeklySchedule.stream().anyMatch(schedule -> {
+
+            boolean sameDay = schedule.getDayOfWeek() == requestedDay;
+
+            boolean startsOnOrAfter = !requestedStartTime.isBefore(schedule.getStartTime());
+            boolean endsOnOrBefore = !requestedEndTime.isAfter(schedule.getEndTime());
+
+            return sameDay && startsOnOrAfter && endsOnOrBefore;
+        });
+    }
 }
