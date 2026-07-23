@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PatientPage from './pages/Patient/PatientPage';
+import CalendarPage from './pages/Calendar/CalendarPage';
 import AuditLogPage from './pages/AuditLog/AuditLogPage';
 import ConsultationRecordPage from './pages/Consultation/ConsultationRecordPage';
 import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
@@ -36,6 +37,14 @@ function App() {
                         element={
                             <PrivateRoute roles={['ADMIN', 'DOCTOR', 'RECEPTION']}>
                                 <PatientPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/calendar"
+                        element={
+                            <PrivateRoute roles={['ADMIN', 'DOCTOR', 'RECEPTION']}>
+                                <CalendarPage />
                             </PrivateRoute>
                         }
                     />
