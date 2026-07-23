@@ -46,4 +46,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
                                                    @Param("start") LocalDateTime start,
                                                    @Param("end") LocalDateTime end,
                                                    @Param("excludeAppointmentId") UUID excludeAppointmentId);
+
+    // P4:
+    List<Appointment> findByDoctorIdInAndStartTimeLessThanAndEndTimeGreaterThan(List<UUID> doctorIds, LocalDateTime end, LocalDateTime start);
+
+    List<Appointment> findByRoomIdAndStartTimeBetween(UUID roomId, LocalDateTime from, LocalDateTime to);
 }
