@@ -5,6 +5,7 @@ import com.holisun.backend.entity.Doctor;
 import com.holisun.backend.entity.Patient;
 import com.holisun.backend.entity.Room;
 import com.holisun.backend.entity.User;
+import com.holisun.backend.entity.WorkSchedule;
 import com.holisun.backend.enums.Role;
 import com.holisun.backend.repository.DoctorRepository;
 import com.holisun.backend.repository.PatientRepository;
@@ -12,14 +13,24 @@ import com.holisun.backend.repository.RoomRepository;
 import com.holisun.backend.repository.ServiceRepository;
 import com.holisun.backend.repository.UserRepository;
 import com.holisun.backend.exception.ResourceConflictException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -40,6 +51,46 @@ public class AvailabilityConcurrencyIntegrationTest {
     @Autowired private PatientRepository patientRepository;
     @Autowired private ServiceRepository serviceRepository;
     @Autowired private UserRepository userRepository; // Necesar pentru că Doctor depinde de User
+    @Autowired private DataSource dataSource;
+
+    /*
+     * Profilul "test" merge cu ddl-auto=create-drop si flyway.enabled=false (vezi
+     * application-test.yml), deci migratia V7__.sql (constrangerile EXCLUDE, plasa de siguranta
+     * anti-coliziune la nivel de DB) nu ruleaza niciodata aici — Hibernate creeaza doar tabela, fara
+     * constrangeri custom in SQL brut. Le adaugam idempotent aici, direct pe schema deja creata de
+     * Hibernate, ca acest test sa verifice efectiv garantia pe care o cere NFR-2, nu doar verificarea
+     * Java (care singura nu prinde doua tranzactii pornite in aceeasi fereastra de timp).
+     */
+    @BeforeEach
+    void ensureExclusionConstraints() throws SQLException {
+        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
+            st.execute("CREATE EXTENSION IF NOT EXISTS btree_gist");
+            addConstraintIfMissing(st, "excl_appointments_doctor_overlap", """
+                    ALTER TABLE appointments ADD CONSTRAINT excl_appointments_doctor_overlap
+                    EXCLUDE USING gist (doctor_id WITH =, tsrange(start_time, end_time) WITH &&)
+                    WHERE (status NOT IN ('CANCELLED', 'NO_SHOW'))
+                    """);
+            addConstraintIfMissing(st, "excl_appointments_room_overlap", """
+                    ALTER TABLE appointments ADD CONSTRAINT excl_appointments_room_overlap
+                    EXCLUDE USING gist (room_id WITH =, tsrange(start_time, end_time) WITH &&)
+                    WHERE (status NOT IN ('CANCELLED', 'NO_SHOW'))
+                    """);
+            addConstraintIfMissing(st, "excl_appointments_equipment_overlap", """
+                    ALTER TABLE appointments ADD CONSTRAINT excl_appointments_equipment_overlap
+                    EXCLUDE USING gist (equipment_id WITH =, tsrange(start_time, end_time) WITH &&)
+                    WHERE (equipment_id IS NOT NULL AND status NOT IN ('CANCELLED', 'NO_SHOW'))
+                    """);
+        }
+    }
+
+    private void addConstraintIfMissing(Statement st, String constraintName, String ddl) throws SQLException {
+        try (ResultSet rs = st.executeQuery(
+                "SELECT 1 FROM pg_constraint WHERE conname = '" + constraintName + "'")) {
+            if (!rs.next()) {
+                st.execute(ddl);
+            }
+        }
+    }
 
     @Test
     public void testConcurrentRoomReservation() throws InterruptedException {
@@ -98,6 +149,18 @@ public class AvailabilityConcurrencyIntegrationTest {
         doctor.setSpeciality("General");
         doctor.setStandardConsultationDurationMinutes(30);
         doctor.setActive(true);
+
+        // Program pe toate zilele saptamanii, ca testul sa nu depinda de ce zi cade "maine"
+        // fata de data la care ruleaza (LocalDateTime.now().plusDays(1) variaza).
+        Arrays.stream(DayOfWeek.values()).forEach(day -> {
+            WorkSchedule schedule = new WorkSchedule();
+            schedule.setDoctor(doctor);
+            schedule.setDayOfWeek(day);
+            schedule.setStartTime(LocalTime.of(8, 0));
+            schedule.setEndTime(LocalTime.of(20, 0));
+            doctor.getWeeklySchedule().add(schedule);
+        });
+
         return doctorRepository.save(doctor);
     }
 
@@ -155,7 +218,11 @@ public class AvailabilityConcurrencyIntegrationTest {
             startLatch.await();
             appointmentService.create(request);
             successCount.incrementAndGet();
-        } catch (ResourceConflictException | DataIntegrityViolationException e) {
+        } catch (ResourceConflictException | DataIntegrityViolationException | CannotAcquireLockException e) {
+            // CannotAcquireLockException: verificat empiric, doua INSERT-uri concurente pe aceeasi
+            // constrangere EXCLUDE pot ajunge la un deadlock real la nivel de Postgres, nu doar la o
+            // violare curata de constrangere — tot un "conflict, a doua cerere respinsa", vezi
+            // GlobalExceptionHandler.handleDataIntegrityViolation.
             failCount.incrementAndGet();
         } catch (Exception e) {
             e.printStackTrace();
