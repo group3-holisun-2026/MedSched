@@ -7,7 +7,6 @@ import com.holisun.backend.enums.AppointmentStatus;
 import com.holisun.backend.mapper.AppointmentMapper;
 import com.holisun.backend.repository.*;
 import com.holisun.backend.util.AppointmentStateMachine;
-import org.springframework.boot.actuate.startup.StartupEndpoint;
 import org.springframework.http.HttpStatus;
 import com.holisun.backend.entity.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +29,6 @@ public class AppointmentService {
     private final AvailabilityValidatorService availabilityValidatorService;
     private final EquipmentAllocationService equipmentAllocationService;
     private final AppointmentStateMachine appointmentStateMachine;
-    private final StartupEndpoint startupEndpoint;
 
     @Transactional
     public AppointmentResponse create(AppointmentRequest dto) {
@@ -73,7 +71,10 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
 
-        appointmentStateMachine.assertTransition(appointment.getStatus(), AppointmentStatus.SCHEDULED);
+        switch (appointment.getStatus()) {
+            case AppointmentStatus.CANCELLED, AppointmentStatus.COMPLETED, AppointmentStatus.IN_PROGRESS, AppointmentStatus.NO_SHOW ->
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Programarea nu poate fi modificata");
+        }
 
         Patient patient = patientRepository.findById(dto.patientId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pacientul nu a fost gasit"));
