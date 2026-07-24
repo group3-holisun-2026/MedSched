@@ -6,6 +6,8 @@ import com.holisun.backend.entity.*;
 import com.holisun.backend.enums.AppointmentStatus;
 import com.holisun.backend.mapper.AppointmentMapper;
 import com.holisun.backend.repository.*;
+import com.holisun.backend.util.AppointmentStateMachine;
+import org.springframework.boot.actuate.startup.StartupEndpoint;
 import org.springframework.http.HttpStatus;
 import com.holisun.backend.entity.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,7 +15,6 @@ import org.springframework.web.server.ResponseStatusException;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 @org.springframework.stereotype.Service
@@ -28,6 +29,8 @@ public class AppointmentService {
     private final AppointmentMapper appointmentMapper;
     private final AvailabilityValidatorService availabilityValidatorService;
     private final EquipmentAllocationService equipmentAllocationService;
+    private final AppointmentStateMachine appointmentStateMachine;
+    private final StartupEndpoint startupEndpoint;
 
     @Transactional
     public AppointmentResponse create(AppointmentRequest dto) {
@@ -70,10 +73,7 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
 
-        switch (appointment.getStatus()){
-            case AppointmentStatus.CANCELLED, AppointmentStatus.COMPLETED ->
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Programarea nu poate fi modificata");
-        }
+        appointmentStateMachine.assertTransition(appointment.getStatus(), AppointmentStatus.SCHEDULED);
 
         Patient patient = patientRepository.findById(dto.patientId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pacientul nu a fost gasit"));
@@ -105,6 +105,7 @@ public class AppointmentService {
         return appointmentMapper.toResponse(saved);
     }
 
+    @Transactional
     public AppointmentResponse getById(UUID id) {
         Appointment appointment = this.appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
@@ -112,16 +113,70 @@ public class AppointmentService {
         return appointmentMapper.toResponse(appointment);
     }
 
+    @Transactional
     public void cancel(UUID id){
         Appointment appointment = this.appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
 
-        switch (appointment.getStatus()){
-            case AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED ->
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Programarea nu poate fi modificata");
-        }
+        appointmentStateMachine.assertTransition(appointment.getStatus(), AppointmentStatus.CANCELLED);
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
+        this.appointmentRepository.save(appointment);
+    }
+
+    @Transactional
+    public void confirm(UUID id) {
+        Appointment appointment = appointmentRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
+
+        appointmentStateMachine.assertTransition(appointment.getStatus(), AppointmentStatus.CONFIRMED);
+
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        this.appointmentRepository.save(appointment);
+    }
+
+    @Transactional
+    public void checkIn(UUID id, UUID callerUserId, boolean isDoctorRole) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
+
+        if(isDoctorRole) {
+            Doctor doctor = doctorRepository.findByUserId(callerUserId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctorul nu a fost gasit"));
+
+            if(!doctor.getId().equals(appointment.getDoctor().getId()))
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Doctorul nu a fost gasit");
+        }
+
+        appointmentStateMachine.assertTransition(appointment.getStatus(), AppointmentStatus.IN_PROGRESS);
+
+        appointment.setStatus(AppointmentStatus.IN_PROGRESS);
+        this.appointmentRepository.save(appointment);
+    }
+
+    @Transactional
+    public void complete(UUID id, UUID callingDoctorId) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
+
+        Doctor doctor = doctorRepository.findById(callingDoctorId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctorul nu a fost gasit"));
+
+        appointmentStateMachine.assertTransition(appointment.getStatus(), AppointmentStatus.COMPLETED);
+
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        appointment.setCompletedAt(LocalDateTime.now());
+        this.appointmentRepository.save(appointment);
+    }
+
+    @Transactional
+    public void noShow(UUID id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita"));
+
+        appointmentStateMachine.assertTransition(appointment.getStatus(), AppointmentStatus.NO_SHOW);
+
+        appointment.setStatus(AppointmentStatus.NO_SHOW);
         this.appointmentRepository.save(appointment);
     }
 }
