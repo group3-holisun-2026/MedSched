@@ -3,7 +3,9 @@ package com.holisun.backend.controller;
 import com.holisun.backend.dto.AppointmentRequest;
 import com.holisun.backend.dto.AppointmentResponse;
 import com.holisun.backend.dto.CalendarAppointmentResponse;
+import com.holisun.backend.entity.Appointment;
 import com.holisun.backend.entity.Doctor;
+import com.holisun.backend.repository.AppointmentRepository;
 import com.holisun.backend.repository.DoctorRepository;
 import com.holisun.backend.service.AppointmentService;
 import com.holisun.backend.service.CalendarService;
@@ -38,6 +40,7 @@ public class AppointmentController {
     private final AppointmentService appointmentService;
     private final CalendarService calendarService;
     private final DoctorRepository doctorRepository;
+    private final AppointmentRepository appointmentRepository;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','RECEPTION')")
@@ -118,20 +121,29 @@ public class AppointmentController {
     @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
     public ResponseEntity<AppointmentResponse> complete(@PathVariable UUID id) {
 
-        // TODO:
-        // P1's implementation of complete doesn't allow a null id (which would be for the ADMIN role)
-        // either beg person1 to change his or ...
+        Optional<Appointment> appointment = appointmentRepository.findById(id);
 
-        UUID doctorId = null;
+        if (appointment.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Programarea nu a fost gasita");
+        }
 
         if (hasRole("DOCTOR")) {
-            Optional<Doctor> doctor = doctorRepository.findByUserId(currentUserId());
-            if (doctor.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Contul curent nu este medic");
+            Optional<Doctor> currentDoctor = doctorRepository.findByUserId(currentUserId());
+            if (currentDoctor.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Contul curent nu este asociat unui medic");
             }
-            doctorId = doctor.get().getId();
+
+            if (!currentDoctor.get().getId().equals(appointment.get().getDoctor().getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Doar medicul alocat poate finaliza consultul");
+            }
+
+            appointmentService.complete(id, currentDoctor.get().getId());
+        } else {
+            // ADMIN: P1 requires a callingDoctorId that is not null.
+            // The workaround for the admin user is to still send the doctor id.
+            appointmentService.complete(id, appointment.get().getDoctor().getId());
         }
-        appointmentService.complete(id, doctorId);
+
         return ResponseEntity.ok(appointmentService.getById(id));
     }
 
