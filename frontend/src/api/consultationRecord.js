@@ -1,50 +1,13 @@
-const BASE_URL = "http://localhost:8080/api";
+import apiClient from '../services/apiClient';
 
-export async function getConsultationRecordRequest(accessToken, appointmentId) {
-    const response = await fetch(`${BASE_URL}/appointments/${appointmentId}/record`, {
-        method: "GET",
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-        },
-    });
+export const consultationRecordApi = {
+  getRecord: async (id) => {
+    const response = await apiClient.get(`/consultation-records/${id}`);
+    return response.data;
+  },
 
-    if (!response.ok) {
-        throw new Error("Nu s-a putut obtine fisa de consultatie");
-    }
-
-    return response.json(); // ConsultationRecordResponse
-}
-
-export async function createConsultationRecordRequest(accessToken, appointmentId, recordData) {
-    const response = await fetch(`${BASE_URL}/appointments/${appointmentId}/record`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(recordData),
-    });
-
-    if (!response.ok) {
-        throw new Error("Nu s-a putut crea fisa de consultatie");
-    }
-
-    return response.json(); // ConsultationRecordResponse (201)
-}
-
-export async function updateConsultationRecordRequest(accessToken, appointmentId, recordData) {
-    const response = await fetch(`${BASE_URL}/appointments/${appointmentId}/record`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(recordData),
-    });
-
-    if (!response.ok) {
-        throw new Error("Nu s-a putut actualiza fisa de consultatie");
-    }
-
-    return response.json(); // ConsultationRecordResponse
-}
+  saveRecord: async (id, data) => {
+    const response = await apiClient.put(`/consultation-records/${id}`, data);
+    return response.data;
+  }
+};
