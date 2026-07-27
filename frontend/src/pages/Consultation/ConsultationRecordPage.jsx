@@ -1,172 +1,178 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useToast } from '../../context/ToastContext';
-import { useAuth } from '../../context/AuthContext'; 
-import apiClient from '../../services/apiClient';
+import { toast } from 'sonner';
+import { useAuth } from '../../context/AuthContext';
+import { appointmentApi } from '../../api/appointments';
 import { consultationRecordApi } from '../../api/consultationRecord';
+import ConsultationRecordForm from './ConsultationRecordForm';
 import Button from '../../components/Button';
 
+const GRACE_MINUTES = 30;
+
 export default function ConsultationRecordPage() {
-  const { id } = useParams(); 
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const { user } = useAuth(); 
+    const { appointmentId } = useParams();
+    const navigate = useNavigate();
+    const { user } = useAuth();
 
-  const [record, setRecord] = useState(null);
-  const [appointment, setAppointment] = useState(null);
-  const [formData, setFormData] = useState({ notes: '' }); 
-  
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+    const [record, setRecord] = useState(null);
+    const [appointment, setAppointment] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [finalizing, setFinalizing] = useState(false);
+    const [error, setError] = useState(null);
+    const [notFound, setNotFound] = useState(false);
 
-  // 1. fetch dublu 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [recordRes, appointmentRes] = await Promise.all([
-          consultationRecordApi.getRecord(id).catch(() => null),
-          apiClient.get(`/appointments/${id}`).then(res => res.data).catch(() => null)
-        ]);
+    // Recalcul la fiecare minut doar ca sa reimprospatam eticheta orei limita din banner
+    // (contorul de gratie e derivat local din completedAt, fara polling dedicat).
+    const [, setTick] = useState(0);
 
-        if (recordRes) {
-          setRecord(recordRes);
-          setFormData(recordRes); 
+    useEffect(() => {
+        let cancelled = false;
+
+        async function fetchAll() {
+            setLoading(true);
+            setError(null);
+            setNotFound(false);
+            try {
+                // Fisa poate lipsi (404 = nu a fost creata inca) — nu e o eroare de pagina.
+                const [recordResult, appointmentResult] = await Promise.allSettled([
+                    consultationRecordApi.getByAppointmentId(appointmentId),
+                    appointmentApi.getById(appointmentId),
+                ]);
+
+                if (cancelled) return;
+
+                if (recordResult.status === 'fulfilled') {
+                    setRecord(recordResult.value);
+                } else {
+                    setNotFound(true);
+                }
+
+                if (appointmentResult.status === 'fulfilled') {
+                    setAppointment(appointmentResult.value);
+                } else {
+                    setError('Nu am putut incarca datele programarii.');
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
         }
-        
-        if (appointmentRes) {
-          setAppointment(appointmentRes);
+
+        fetchAll();
+        return () => {
+            cancelled = true;
+        };
+    }, [appointmentId]);
+
+    useEffect(() => {
+        const interval = setInterval(() => setTick((t) => t + 1), 60_000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const isLocked = record?.locked === true;
+    const status = appointment?.status;
+    const isOwnAppointment = appointment?.doctor?.userId === user?.id;
+    const canFinalize = user?.role === 'ADMIN' || (user?.role === 'DOCTOR' && isOwnAppointment);
+
+    // Banner de gratie doar cat timp fisa chiar mai e editabila; cand `locked` devine true,
+    // mesajul din formular acopera deja cazul final (nu afisam ambele).
+    const showGraceBanner = status === 'COMPLETED' && !isLocked && !!appointment?.completedAt;
+
+    const graceLimitLabel = appointment?.completedAt
+        ? new Date(new Date(appointment.completedAt).getTime() + GRACE_MINUTES * 60_000)
+              .toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })
+        : '';
+
+    const saveRecord = useCallback(
+        async (formData) => {
+            setSaving(true);
+            setError(null);
+            try {
+                const saved = record
+                    ? await consultationRecordApi.update(appointmentId, formData)
+                    : await consultationRecordApi.create(appointmentId, formData);
+                setRecord(saved);
+                setNotFound(false);
+                toast.success('Fisa a fost salvata.');
+                return saved;
+            } catch (err) {
+                const message =
+                    err.response?.status === 403
+                        ? 'Nu aveti drepturi asupra acestei fise.'
+                        : err.response?.data?.message || 'Nu s-a putut salva fisa de consultatie.';
+                setError(message);
+                toast.error(message);
+                return null;
+            } finally {
+                setSaving(false);
+            }
+        },
+        [appointmentId, record]
+    );
+
+    async function handleFinalize(formData) {
+        // Spec §3: salvam intai fisa curenta, si doar daca a mers chemam /complete —
+        // altfel medicul ar finaliza consultul pierzand ce tocmai a scris.
+        const saved = await saveRecord(formData);
+        if (!saved) return;
+
+        setFinalizing(true);
+        try {
+            const updated = await appointmentApi.complete(appointmentId);
+            // Sursa de adevar pentru completedAt e serverul, nu ceasul din browser.
+            setAppointment(updated);
+            toast.success('Consultatia a fost finalizata.');
+        } catch (err) {
+            const message =
+                err.response?.status === 403
+                    ? 'Nu aveti drepturi sa finalizati aceasta consultatie.'
+                    : err.response?.data?.message || 'Nu s-a putut finaliza consultatia.';
+            toast.error(message);
+        } finally {
+            setFinalizing(false);
         }
-      } catch (error) {
-        toast({ type: 'error', message: 'Eroare la încărcarea datelor.' });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [id, toast]);
-
-  // 2. actualizare timp banner 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-
-  const isDoctorAssignedOrAdmin = user?.role === 'ADMIN' || user?.doctorId === appointment?.doctorId;
-  const isLocked = record?.locked === true;
-  const showGraceBanner = appointment?.status === 'COMPLETED' && !isLocked;
-
-  const getGraceLimitTime = () => {
-    if (!appointment?.completedAt) return '';
-    const limitDate = new Date(new Date(appointment.completedAt).getTime() + 30 * 60000);
-    return limitDate.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // 3. salvare fisa
-  const handleSaveRecord = async () => {
-    try {
-      setIsSaving(true);
-      const response = await consultationRecordApi.saveRecord(id, formData);
-      setRecord(response);
-      toast({ type: 'success', message: 'Fișa a fost salvată.' });
-      return true; 
-    } catch (error) {
-      if (error.response?.status === 403) {
-        toast({ type: 'error', message: 'Nu aveți drepturi asupra acestei fișe.' });
-      } else {
-        toast({ type: 'error', message: 'Eroare la salvarea fișei.' });
-      }
-      return false;
-    } finally {
-      setIsSaving(false);
     }
-  };
 
-  // 4. finalizare consulatie
-  const handleFinalize = async () => {
-    const isSaved = await handleSaveRecord();
-    if (!isSaved) return;
+    if (loading) return <div style={{ padding: '20px' }}>Se incarca...</div>;
 
-    try {
-      setIsSaving(true);
-      await apiClient.patch(`/appointments/${id}/complete`);
-      toast({ type: 'success', message: 'Consultația a fost finalizată!' });
-      
-      setAppointment(prev => ({
-        ...prev,
-        status: 'COMPLETED',
-        completedAt: new Date().toISOString()
-      }));
-    } catch (error) {
-      if (error.response?.status === 403) {
-        toast({ type: 'error', message: 'Nu aveți drepturi pentru a finaliza.' });
-      } else {
-        toast({ type: 'error', message: 'Eroare la finalizare.' });
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    return (
+        <div style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h1>Fisa de Consultatie</h1>
+                <Button variant="outline" onClick={() => navigate(-1)}>
+                    Inapoi
+                </Button>
+            </div>
 
-  if (loading) return <div className="p-8 text-center">Se încarcă...</div>;
+            <p>Programare: {appointmentId}</p>
 
-  return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center border-b pb-4">
-        <h1 className="text-2xl font-bold text-gray-800">Fișă Consultație</h1>
-        <Button variant="outline" onClick={() => navigate(-1)}>Înapoi</Button>
-      </div>
+            {error && <p style={{ color: '#c0392b' }}>{error}</p>}
 
-      {/* BANNER UNIC */}
-      {isLocked ? (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <p className="text-sm text-red-700 font-medium">Fișa este blocată și nu mai poate fi editată.</p>
+            {showGraceBanner && (
+                <p
+                    style={{
+                        borderLeft: '4px solid #2f6fed',
+                        background: '#eef3fd',
+                        padding: '10px 12px',
+                        margin: '12px 0',
+                        fontSize: '0.9rem',
+                    }}
+                >
+                    Consultatia e finalizata. Fisa ramane editabila pana la ora {graceLimitLabel}.
+                </p>
+            )}
+
+            {notFound && <p>Nicio fisa existenta — completeaza formularul pentru a o crea.</p>}
+
+            <ConsultationRecordForm
+                record={record}
+                readOnly={isLocked}
+                onSubmit={saveRecord}
+                saving={saving}
+                showFinalize={status === 'IN_PROGRESS' && canFinalize}
+                onFinalize={handleFinalize}
+                finalizing={finalizing}
+            />
         </div>
-      ) : showGraceBanner ? (
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-          <p className="text-sm text-blue-700 font-medium">
-            Consultația e finalizată. Fișa rămâne editabilă până la ora {getGraceLimitTime()}.
-          </p>
-        </div>
-      ) : null}
-
-      {/* FORMULAR FIȘĂ */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Notițe</label>
-          <textarea
-            name="notes"
-            value={formData.notes || ''}
-            onChange={handleInputChange}
-            disabled={isLocked || isSaving}
-            rows="6"
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
-          />
-        </div>
-      </div>
-
-      {/* BUTOANE */}
-      <div className="flex justify-end gap-4 pt-4">
-        <Button onClick={handleSaveRecord} disabled={isLocked || isSaving} variant="outline">
-          Salvează Modificări
-        </Button>
-
-        {appointment?.status === 'IN_PROGRESS' && isDoctorAssignedOrAdmin && (
-          <Button onClick={handleFinalize} disabled={isSaving} variant="primary">
-            Finalizează consultația
-          </Button>
-        )}
-      </div>
-    </div>
-  );
+    );
 }

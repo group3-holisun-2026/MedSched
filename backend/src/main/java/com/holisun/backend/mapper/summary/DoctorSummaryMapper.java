@@ -7,6 +7,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface DoctorSummaryMapper {
+    @Mapping(target = "userId", source = "user.id")
     @Mapping(target = "username", source = "user.username")
     DoctorSummary toSummary(Doctor doctor);
 }
