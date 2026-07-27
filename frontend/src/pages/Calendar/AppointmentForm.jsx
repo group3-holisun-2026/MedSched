@@ -10,6 +10,18 @@ import { doctorApi } from '../../api/doctors';
 import { roomApi } from '../../api/rooms';
 import { appointmentApi } from '../../api/appointments';
 
+// Optiuni fixe pentru selectorul de ora, intre 08:00 si 20:00 (programul clinicii), din 15 in 15
+// minute — acelasi pas ca grila de calendar. Folosim <select> in loc de <input type="time" min max>
+// pentru ca browserele nu filtreaza selectorul nativ de ora dupa min/max: doar valideaza la submit,
+// deci userul tot putea derula prin toate cele 24h. Cu select, orele din afara programului nu exista.
+const TIME_SLOT_OPTIONS = [];
+for (let h = 8; h <= 20; h++) {
+    for (let m = 0; m < 60; m += 15) {
+        if (h === 20 && m > 0) break;
+        TIME_SLOT_OPTIONS.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+}
+
 const AppointmentForm = ({ initialData, onSave, onCancel }) => {
     const [formData, setFormData] = useState({
         patientId: '',
@@ -66,11 +78,14 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
 
     useEffect(() => {
         if (!initialData) return;
+        // initialData vine in doua forme: AppointmentResponse complet la reprogramare
+        // (patient/doctor/room/service ca obiecte imbricate) sau doar { startTime } la creare
+        // dintr-un slot liber. De-aia citim ambele variante — nested .id si flat *Id.
         setFormData({
-            patientId: initialData.patientId || '',
-            doctorId: initialData.doctorId || '',
-            roomId: initialData.roomId || '',
-            serviceId: initialData.serviceId || '',
+            patientId: initialData.patient?.id ?? initialData.patientId ?? '',
+            doctorId: initialData.doctor?.id ?? initialData.doctorId ?? '',
+            roomId: initialData.room?.id ?? initialData.roomId ?? '',
+            serviceId: initialData.service?.id ?? initialData.serviceId ?? '',
             startTime: initialData.startTime ? initialData.startTime.substring(0, 16) : '',
             notes: initialData.notes || ''
         });
@@ -107,6 +122,27 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
 
     const selectedPatient = patients.find(p => String(p.id) === String(formData.patientId));
 
+    // Data si ora raman tinute intern ca un singur string "YYYY-MM-DDTHH:mm" (formData.startTime),
+    // dar sunt afisate ca doua controale separate: un input de data si selectorul de ora de mai sus.
+    const startDatePart = formData.startTime ? formData.startTime.slice(0, 10) : '';
+    const startTimePart = formData.startTime ? formData.startTime.slice(11, 16) : '';
+
+    const handleStartDateChange = (e) => {
+        const date = e.target.value;
+        setFormData(prev => {
+            const time = prev.startTime ? prev.startTime.slice(11, 16) : '08:00';
+            return { ...prev, startTime: date ? `${date}T${time}` : '' };
+        });
+    };
+
+    const handleStartTimeChange = (e) => {
+        const time = e.target.value;
+        setFormData(prev => {
+            const date = prev.startTime ? prev.startTime.slice(0, 10) : '';
+            return { ...prev, startTime: date ? `${date}T${time}` : prev.startTime };
+        });
+    };
+
     const calculateEndTime = () => {
         if (!formData.startTime || !formData.serviceId) return '';
 
@@ -121,6 +157,14 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Plasa de siguranta pentru cazul in care startTime ajunge in stare din alta sursa decat
+        // selectorul (ex. initialData de la o programare veche, dinainte de limitarea programului).
+        if (startTimePart && (startTimePart < '08:00' || startTimePart > '20:00')) {
+            toast.error('Ora selectata trebuie sa fie intre 08:00 si 20:00.');
+            return;
+        }
+
         try {
             let finalPatientId = formData.patientId;
 
@@ -134,7 +178,11 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                 doctorId: formData.doctorId,
                 roomId: formData.roomId,
                 serviceId: formData.serviceId,
-                startTime: new Date(formData.startTime).toISOString(),
+                // Backendul primeste LocalDateTime (ora de perete, fara fus), iar calendarul
+                // citeste raspunsul cu new Date(...) tot ca ora locala. formData.startTime e deja
+                // "YYYY-MM-DDTHH:mm" local, deci il trimitem ca atare: un toISOString() l-ar
+                // converti in UTC si programarea ar aluneca cu 2-3 ore (offsetul Romaniei).
+                startTime: `${formData.startTime}:00`,
                 notes: formData.notes
             };
 
@@ -318,17 +366,33 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                     <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Dată și Oră Start <span className="text-red-500">*</span>
                     </label>
-                    <input
-                        type="datetime-local"
-                        name="startTime"
-                        value={formData.startTime}
-                        onChange={handleChange}
-                        required
-                        // 900s = 15 min, ca sageatile sa mearga pe :00/:15/:30/:45, la fel ca
-                        // pasul grilei de calendar.
-                        step="900"
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                        <input
+                            type="date"
+                            value={startDatePart}
+                            onChange={handleStartDateChange}
+                            required
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <select
+                            value={startTimePart}
+                            onChange={handleStartTimeChange}
+                            required
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="" disabled>-- Ora --</option>
+                            {/* O programare existenta poate avea o ora care nu cade pe grila de 15
+                                minute (sau e din afara programului). Fara optiunea ei proprie,
+                                select-ul s-ar afisa gol si am pierde ora reala la reprogramare. */}
+                            {startTimePart && !TIME_SLOT_OPTIONS.includes(startTimePart) && (
+                                <option value={startTimePart}>{startTimePart} (in afara grilei)</option>
+                            )}
+                            {TIME_SLOT_OPTIONS.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Program: 08:00 - 20:00</p>
                 </div>
 
                 {/* PREVIEW ORA SFARSIT */}

@@ -35,6 +35,7 @@ export function AuthProvider({ children }) {
         const data = await loginRequest(email, password);
         saveTokens(data.accessToken, data.refreshToken);
         setUser(data.user ?? null);
+        return data.user ?? null;
     }, [saveTokens]);
 
     const logout = useCallback(async () => {
