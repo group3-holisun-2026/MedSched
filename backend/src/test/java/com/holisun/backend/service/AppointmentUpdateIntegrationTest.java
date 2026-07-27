@@ -3,6 +3,7 @@ package com.holisun.backend.service;
 import com.holisun.backend.entity.Appointment;
 import com.holisun.backend.enums.AppointmentStatus;
 import com.holisun.backend.repository.AppointmentRepository;
+import com.holisun.backend.util.AppointmentStateMachine;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

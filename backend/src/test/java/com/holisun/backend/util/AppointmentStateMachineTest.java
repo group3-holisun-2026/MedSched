@@ -1,4 +1,4 @@
-package com.holisun.backend.service;
+package com.holisun.backend.util;
 
 import com.holisun.backend.enums.AppointmentStatus;
 import org.junit.jupiter.api.BeforeEach;

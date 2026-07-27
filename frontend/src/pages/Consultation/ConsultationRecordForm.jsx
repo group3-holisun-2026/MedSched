@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
 
-export default function ConsultationRecordForm({ record, readOnly, onSubmit, saving }) {
+export default function ConsultationRecordForm({
+    record,
+    readOnly,
+    onSubmit,
+    saving,
+    showFinalize = false,
+    onFinalize,
+    finalizing = false,
+}) {
     const [presentationMotive, setPresentationMotive] = useState("");
     const [anamnesis, setAnamnesis] = useState("");
     const [clinicalExam, setClinicalExam] = useState("");
@@ -17,9 +25,13 @@ export default function ConsultationRecordForm({ record, readOnly, onSubmit, sav
         }
     }, [record]);
 
+    function currentValues() {
+        return { presentationMotive, anamnesis, clinicalExam, diagnosis, prescription };
+    }
+
     function handleSubmit(e) {
         e.preventDefault();
-        onSubmit({ presentationMotive, anamnesis, clinicalExam, diagnosis, prescription });
+        onSubmit(currentValues());
     }
 
     return (
@@ -99,9 +111,23 @@ export default function ConsultationRecordForm({ record, readOnly, onSubmit, sav
                     Fisa este blocata (programare finalizata) — doar in citire.
                 </p>
             ) : (
-                <button type="submit" disabled={saving}>
-                    {saving ? "Se salveaza..." : "Salveaza"}
-                </button>
+                <div style={{ display: "flex", gap: "8px" }}>
+                    <button type="submit" disabled={saving || finalizing}>
+                        {saving ? "Se salveaza..." : "Salveaza"}
+                    </button>
+
+                    {/* Finalizarea traieste tot aici ca sa poata salva intai valorile curente
+                        din formular, apoi sa cheme PATCH /complete (F-402). */}
+                    {showFinalize && (
+                        <button
+                            type="button"
+                            disabled={saving || finalizing}
+                            onClick={() => onFinalize(currentValues())}
+                        >
+                            {finalizing ? "Se finalizeaza..." : "Finalizeaza consultatia"}
+                        </button>
+                    )}
+                </div>
             )}
         </form>
     );
