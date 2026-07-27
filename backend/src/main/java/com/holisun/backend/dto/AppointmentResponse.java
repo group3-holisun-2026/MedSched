@@ -19,5 +19,8 @@ public record AppointmentResponse(
         String notes,
         long version,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        /** Momentul tranzitiei in COMPLETED; null pentru orice alt status. Frontend-ul
+         *  calculeaza din el fereastra de gratie de 30 min in care fisa ramane editabila. */
+        LocalDateTime completedAt
 ) {}
