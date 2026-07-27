@@ -69,18 +69,28 @@ export default function ConsultationRecordPage() {
         return () => clearInterval(interval);
     }, []);
 
-    const isLocked = record?.locked === true;
     const status = appointment?.status;
     const isOwnAppointment = appointment?.doctor?.userId === user?.id;
     const canFinalize = user?.role === 'ADMIN' || (user?.role === 'DOCTOR' && isOwnAppointment);
 
-    // Banner de gratie doar cat timp fisa chiar mai e editabila; cand `locked` devine true,
-    // mesajul din formular acopera deja cazul final (nu afisam ambele).
-    const showGraceBanner = status === 'COMPLETED' && !isLocked && !!appointment?.completedAt;
-
-    const graceLimitLabel = appointment?.completedAt
+    const graceDeadline = appointment?.completedAt
         ? new Date(new Date(appointment.completedAt).getTime() + GRACE_MINUTES * 60_000)
-              .toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })
+        : null;
+
+    // Job-ul de pe backend pune `locked` o data pe minut, deci la minutul 30 fisa poate fi
+    // inca `locked: false` desi serverul respinge deja scrierea. Calculam expirarea si local
+    // (efectul de mai sus re-randeaza din minut in minut), ca UI-ul sa nu promita un camp
+    // editabil pe care salvarea l-ar refuza.
+    const graceExpired = status === 'COMPLETED' && (!graceDeadline || new Date() > graceDeadline);
+
+    const isLocked = record?.locked === true || graceExpired;
+
+    // Banner de gratie doar cat timp fisa chiar mai e editabila; cand devine blocata,
+    // mesajul din formular acopera deja cazul final (nu afisam ambele).
+    const showGraceBanner = status === 'COMPLETED' && !isLocked && !!graceDeadline;
+
+    const graceLimitLabel = graceDeadline
+        ? graceDeadline.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })
         : '';
 
     const saveRecord = useCallback(
