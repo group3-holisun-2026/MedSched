@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
@@ -28,6 +28,10 @@ const localizer = dateFnsLocalizer({
     locales,
 });
 
+// Doar time-of-day-ul din aceste date conteaza pentru react-big-calendar (min/max) - ziua e arbitrara.
+const CALENDAR_MIN_TIME = new Date(1972, 0, 1, 8, 0, 0);
+const CALENDAR_MAX_TIME = new Date(1972, 0, 1, 20, 0, 0);
+
 const STATUS_COLORS = {
     SCHEDULED: "#3174ad",
     CONFIRMED: "#2e8b57",
@@ -40,7 +44,7 @@ const STATUS_COLORS = {
 const STATUS_LABELS = {
     SCHEDULED: "Programat",
     CONFIRMED: "Confirmat",
-    IN_PROGRESS: "Consultație activă",
+    IN_PROGRESS: "Consultatie activa",
     COMPLETED: "Finalizat",
     NO_SHOW: "Neprezentat",
     CANCELLED: "Anulat",
@@ -99,13 +103,6 @@ export default function CalendarPage() {
     const [eventDetailLoading, setEventDetailLoading] = useState(false);
     const [actionProcessing, setActionProcessing] = useState(false);
 
-    // Memoizat: un obiect literal nou la fiecare randare ar reinitializa formularul de
-    // programare (vezi efectul de hidratare din AppointmentForm).
-    const createInitialData = useMemo(
-        () => (selectedSlot ? { startTime: selectedSlot.start.toISOString() } : null),
-        [selectedSlot]
-    );
-
     const fetchAppointments = useCallback(async ({ isPoll = false } = {}) => {
         const from = view === "day" ? startOfDay(date) : startOfWeek(date, { locale: ro });
         const to = view === "day" ? endOfDay(date) : endOfWeek(date, { locale: ro });
@@ -150,17 +147,13 @@ export default function CalendarPage() {
         fetchAppointments();
     }, [fetchAppointments]);
 
-    // Nu facem polling cat timp un modal e deschis: reimprospatarea re-randeaza pagina sub
-    // formularul pe care userul tocmai il completeaza, fara ca el sa vada calendarul oricum.
     useEffect(() => {
-        if (modalMode) return undefined;
-
         pollingRef.current = setInterval(() => {
             fetchAppointments({ isPoll: true });
         }, 20000);
 
         return () => clearInterval(pollingRef.current);
-    }, [fetchAppointments, modalMode]);
+    }, [fetchAppointments]);
 
     function handleSelectSlot(slotInfo) {
         setSelectedSlot(slotInfo);
@@ -210,11 +203,14 @@ export default function CalendarPage() {
     }
 
     function handleEditFromDetails() {
-        const raw = selectedEvent.raw;
+        // Folosim eventDetail (AppointmentResponse complet), nu selectedEvent.raw (DTO-ul
+        // "slim" de calendar) - raw nu are patient/doctor/room/service ca sa putem prefilla
+        // formularul de reprogramare cu ID-urile curente.
+        if (!eventDetail) return;
         setSelectedSlot({
-            start: new Date(raw.startTime),
-            end: new Date(raw.endTime),
-            initialData: raw,
+            start: new Date(eventDetail.startTime),
+            end: new Date(eventDetail.endTime),
+            initialData: eventDetail,
         });
         setModalMode("edit");
     }
@@ -389,6 +385,8 @@ export default function CalendarPage() {
                         onNavigate={setDate}
                         views={["day", "week"]}
                         style={{ height: "100%" }}
+                        min={CALENDAR_MIN_TIME}
+                        max={CALENDAR_MAX_TIME}
                         selectable
                         onSelectSlot={handleSelectSlot}
                         onSelectEvent={handleSelectEvent}
@@ -413,7 +411,11 @@ export default function CalendarPage() {
             {/* Modal creare programare */}
             <Modal isOpen={modalMode === "create"} onClose={closeModal} title="Programare noua">
                 <AppointmentForm
-                    initialData={createInitialData}
+                    initialData={
+                        selectedSlot
+                            ? { startTime: selectedSlot.start.toISOString() }
+                            : null
+                    }
                     onSave={handleFormSaved}
                     onCancel={closeModal}
                 />
