@@ -34,6 +34,15 @@ const STATUS_COLORS = {
     CANCELLED: "#a0a0a0",
 };
 
+const STATUS_LABELS = {
+    SCHEDULED: "Programat",
+    CONFIRMED: "Confirmat",
+    IN_PROGRESS: "Consultație activă",
+    COMPLETED: "Finalizat",
+    NO_SHOW: "Neprezentat",
+    CANCELLED: "Anulat",
+};
+
 function eventStyleGetter(event) {
     const backgroundColor = STATUS_COLORS[event.status] || "#3174ad";
     return { style: { backgroundColor } };
@@ -184,6 +193,25 @@ export default function CalendarPage() {
 
             {!loading && (
                 <>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "10px" }}>
+            {Object.keys(STATUS_LABELS).map((status) => (
+                <div key={status} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span
+                        style={{
+                            display: "inline-block",
+                            width: "12px",
+                            height: "12px",
+                            borderRadius: "3px",
+                            backgroundColor: STATUS_COLORS[status],
+                        }}
+                    />
+                    <span style={{ fontSize: "0.85rem", color: "#333" }}>
+                        {STATUS_LABELS[status]}
+                    </span>
+                </div>
+            ))}
+        </div>
+
                     <Calendar
                         localizer={localizer}
                         events={events}
@@ -237,7 +265,7 @@ export default function CalendarPage() {
                 {selectedEvent && (
                     <div>
                         <p><strong>{selectedEvent.title}</strong></p>
-                        <p>Status: {selectedEvent.status}</p>
+                        <p>Status: {STATUS_LABELS[selectedEvent.status] || selectedEvent.status}</p>
                         <p>
                             {format(selectedEvent.start, "dd.MM.yyyy HH:mm")} —{" "}
                             {format(selectedEvent.end, "HH:mm")}
