@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
@@ -76,6 +76,13 @@ export default function CalendarPage() {
     const [eventDetailLoading, setEventDetailLoading] = useState(false);
     const [actionProcessing, setActionProcessing] = useState(false);
 
+    // Memoizat: un obiect literal nou la fiecare randare ar reinitializa formularul de
+    // programare (vezi efectul de hidratare din AppointmentForm).
+    const createInitialData = useMemo(
+        () => (selectedSlot ? { startTime: selectedSlot.start.toISOString() } : null),
+        [selectedSlot]
+    );
+
     const fetchAppointments = useCallback(async ({ isPoll = false } = {}) => {
         const from = view === "day" ? startOfDay(date) : startOfWeek(date, { locale: ro });
         const to = view === "day" ? endOfDay(date) : endOfWeek(date, { locale: ro });
@@ -120,13 +127,17 @@ export default function CalendarPage() {
         fetchAppointments();
     }, [fetchAppointments]);
 
+    // Nu facem polling cat timp un modal e deschis: reimprospatarea re-randeaza pagina sub
+    // formularul pe care userul tocmai il completeaza, fara ca el sa vada calendarul oricum.
     useEffect(() => {
+        if (modalMode) return undefined;
+
         pollingRef.current = setInterval(() => {
             fetchAppointments({ isPoll: true });
         }, 20000);
 
         return () => clearInterval(pollingRef.current);
-    }, [fetchAppointments]);
+    }, [fetchAppointments, modalMode]);
 
     function handleSelectSlot(slotInfo) {
         setSelectedSlot(slotInfo);
@@ -369,11 +380,7 @@ export default function CalendarPage() {
             {/* Modal creare programare */}
             <Modal isOpen={modalMode === "create"} onClose={closeModal} title="Programare noua">
                 <AppointmentForm
-                    initialData={
-                        selectedSlot
-                            ? { startTime: selectedSlot.start.toISOString() }
-                            : null
-                    }
+                    initialData={createInitialData}
                     onSave={handleFormSaved}
                     onCancel={closeModal}
                 />

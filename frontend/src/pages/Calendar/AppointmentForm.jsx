@@ -31,32 +31,25 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
     const [newPatientName, setNewPatientName] = useState('');
     const [newPatientPhone, setNewPatientPhone] = useState('');
 
+    // Listele de selectie nu depind de programarea editata — le incarcam o singura data, la
+    // montare. Inainte, acest efect depindea de `initialData`, iar parintele recreeaza acel
+    // obiect la fiecare randare: polling-ul de 20s al calendarului declansa un re-fetch care
+    // punea formularul in "loading" si ii golea campurile in timp ce userul completa.
     useEffect(() => {
         const fetchAllData = async () => {
             try {
                 setLoading(true);
                 const [patientsRes, docsRes, roomsRes, servRes] = await Promise.all([
-                    patientApi.getAll().catch(() => [{id: 1, name: 'Ion Popescu', cnp: '1234567890123'}]),
-                    doctorApi.getAll().catch(() => [{id: 1, firstName: 'Andrei', lastName: 'Ionescu'}]),
-                    roomApi.getAll().catch(() => [{id: 1, name: 'Cabinet 1'}]),
-                    serviceApi.getAll().catch(() => [{id: 1, name: 'Consultație Generală', defaultDurationMinutes: 30}])
+                    patientApi.getAll().catch(() => []),
+                    doctorApi.getAll().catch(() => []),
+                    roomApi.getAll().catch(() => []),
+                    serviceApi.getAll().catch(() => [])
                 ]);
 
                 setPatients(patientsRes);
                 setDoctors(docsRes);
                 setRooms(roomsRes);
                 setServices(servRes);
-
-                if (initialData) {
-                    setFormData({
-                        patientId: initialData.patientId || '',
-                        doctorId: initialData.doctorId || '',
-                        roomId: initialData.roomId || '',
-                        serviceId: initialData.serviceId || '',
-                        startTime: initialData.startTime ? initialData.startTime.substring(0, 16) : '',
-                        notes: initialData.notes || ''
-                    });
-                }
             } catch (error) {
                 toast.error("A apărut o problemă la preluarea datelor. Vă rugăm să reîncercați.");
             } finally {
@@ -65,7 +58,24 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
         };
 
         fetchAllData();
-    }, [initialData]);
+    }, []);
+
+    // Hidratarea formularului se face doar cand se schimba efectiv programarea editata.
+    // Cheia e o valoare primitiva (id / ora de start), nu identitatea obiectului.
+    const initialDataKey = initialData?.id ?? initialData?.startTime ?? null;
+
+    useEffect(() => {
+        if (!initialData) return;
+        setFormData({
+            patientId: initialData.patientId || '',
+            doctorId: initialData.doctorId || '',
+            roomId: initialData.roomId || '',
+            serviceId: initialData.serviceId || '',
+            startTime: initialData.startTime ? initialData.startTime.substring(0, 16) : '',
+            notes: initialData.notes || ''
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialDataKey]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
