@@ -93,13 +93,13 @@ export const patientApi = {
         const patients = await getPatientsRequest(localStorage.getItem('accessToken'));
         return patients.map((p) => ({ ...p, name: `${p.firstName} ${p.lastName}` }));
     },
-    create: async ({ name }) => {
+    create: async ({ name, phone }) => {
         const [firstName, ...rest] = name.trim().split(' ');
         const lastName = rest.join(' ') || firstName;
         const created = await quickCreatePatientRequest(localStorage.getItem('accessToken'), {
             firstName,
             lastName,
-            phone: '',
+            phone,
         });
         return { ...created, name: `${created.firstName} ${created.lastName}` };
     },

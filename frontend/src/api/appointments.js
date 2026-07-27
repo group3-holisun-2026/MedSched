@@ -25,4 +25,24 @@ export const appointmentApi = {
         const response = await apiClient.get('/appointments/calendar', { params });
         return response.data;
     },
+
+    confirm: async (id) => {
+        const response = await apiClient.patch(`/appointments/${id}/confirm`);
+        return response.data;
+    },
+
+    checkIn: async (id) => {
+        const response = await apiClient.patch(`/appointments/${id}/check-in`);
+        return response.data;
+    },
+
+    noShow: async (id) => {
+        const response = await apiClient.patch(`/appointments/${id}/no-show`);
+        return response.data;
+    },
+
+    complete: async (id) => {
+        const response = await apiClient.patch(`/appointments/${id}/complete`);
+        return response.data;
+    },
 };
