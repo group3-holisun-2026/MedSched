@@ -3,6 +3,7 @@ package com.holisun.backend.service;
 import com.holisun.backend.dto.ConsultationRecordRequest;
 import com.holisun.backend.dto.ConsultationRecordResponse;
 
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -11,6 +12,14 @@ import java.util.UUID;
  * vine de la P2 — vezi ConsultationRecordServiceImpl.
  */
 public interface ConsultationRecordService {
+
+    /**
+     * F-402: dupa trecerea programarii in COMPLETED, fisa mai poate fi completata/corectata
+     * exact atat timp. Constanta e folosita si de serviciu (respingere sincrona la scriere),
+     * si de ConsultationRecordLockScheduler (marcarea fisei ca `locked`), ca cele doua sa nu
+     * poata ajunge la valori diferite.
+     */
+    Duration EDIT_GRACE_PERIOD = Duration.ofMinutes(30);
 
     ConsultationRecordResponse getByAppointmentId(UUID appointmentId);
 

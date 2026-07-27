@@ -2,7 +2,10 @@ package com.holisun.backend.service;
 
 import com.holisun.backend.dto.ConsultationRecordRequest;
 import com.holisun.backend.dto.ConsultationRecordResponse;
+import com.holisun.backend.entity.Appointment;
 import com.holisun.backend.entity.ConsultationRecord;
+import com.holisun.backend.enums.AppointmentStatus;
+import com.holisun.backend.repository.AppointmentRepository;
 import com.holisun.backend.repository.ConsultationRecordRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -24,6 +27,9 @@ class ConsultationRecordServiceImplTest {
 
     @Mock
     private ConsultationRecordRepository consultationRecordRepository;
+
+    @Mock
+    private AppointmentRepository appointmentRepository;
 
     @InjectMocks
     private ConsultationRecordServiceImpl consultationRecordService;
@@ -49,6 +55,8 @@ class ConsultationRecordServiceImplTest {
                 false
         );
 
+        stubAppointment(appointmentId, AppointmentStatus.IN_PROGRESS, null);
+
         when(consultationRecordRepository.findByAppointmentId(appointmentId))
                 .thenReturn(Optional.of(existing));
 
@@ -67,6 +75,8 @@ class ConsultationRecordServiceImplTest {
     @Test
     void createSavesAndReturnsNewRecord() {
         UUID appointmentId = UUID.randomUUID();
+
+        stubAppointment(appointmentId, AppointmentStatus.IN_PROGRESS, null);
 
         when(consultationRecordRepository.findByAppointmentId(appointmentId))
                 .thenReturn(Optional.empty());
@@ -139,6 +149,8 @@ class ConsultationRecordServiceImplTest {
                 false
         );
 
+        stubAppointment(appointmentId, AppointmentStatus.IN_PROGRESS, null);
+
         when(consultationRecordRepository.findByAppointmentId(appointmentId))
                 .thenReturn(Optional.of(existing));
 
@@ -191,6 +203,92 @@ class ConsultationRecordServiceImplTest {
 
         verify(consultationRecordRepository)
                 .saveAndFlush(existing);
+    }
+
+    @Test
+    void createIsRejectedAfterGracePeriodExpires() {
+        UUID appointmentId = UUID.randomUUID();
+
+        // Cazul care nu era acoperit deloc: fisa nu exista, deci job-ul de blocare nu avea ce
+        // marca, iar medicul putea sa o creeze oricat de tarziu dupa finalizarea consultatiei.
+        stubAppointment(
+                appointmentId,
+                AppointmentStatus.COMPLETED,
+                LocalDateTime.now().minusMinutes(31)
+        );
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> consultationRecordService.create(appointmentId, createRequest())
+        );
+
+        assertTrue(exception.getMessage().contains("gratie"));
+
+        verify(consultationRecordRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateIsRejectedAfterGracePeriodEvenIfSchedulerHasNotLockedYet() {
+        UUID appointmentId = UUID.randomUUID();
+
+        ConsultationRecord unlocked = createExistingRecord(appointmentId, false);
+
+        stubAppointment(
+                appointmentId,
+                AppointmentStatus.COMPLETED,
+                LocalDateTime.now().minusMinutes(31)
+        );
+
+        when(consultationRecordRepository.findByAppointmentId(appointmentId))
+                .thenReturn(Optional.of(unlocked));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> consultationRecordService.update(appointmentId, createRequest())
+        );
+
+        assertTrue(exception.getMessage().contains("gratie"));
+
+        verify(consultationRecordRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateIsAllowedWhileStillInsideGracePeriod() {
+        UUID appointmentId = UUID.randomUUID();
+
+        ConsultationRecord unlocked = createExistingRecord(appointmentId, false);
+
+        stubAppointment(
+                appointmentId,
+                AppointmentStatus.COMPLETED,
+                LocalDateTime.now().minusMinutes(10)
+        );
+
+        when(consultationRecordRepository.findByAppointmentId(appointmentId))
+                .thenReturn(Optional.of(unlocked));
+        when(consultationRecordRepository.saveAndFlush(unlocked))
+                .thenReturn(unlocked);
+
+        ConsultationRecordResponse response =
+                consultationRecordService.update(appointmentId, createRequest());
+
+        assertEquals("Migrena", response.diagnosis());
+
+        verify(consultationRecordRepository).saveAndFlush(unlocked);
+    }
+
+    private void stubAppointment(
+            UUID appointmentId,
+            AppointmentStatus status,
+            LocalDateTime completedAt
+    ) {
+        Appointment appointment = new Appointment();
+        appointment.setId(appointmentId);
+        appointment.setStatus(status);
+        appointment.setCompletedAt(completedAt);
+
+        when(appointmentRepository.findById(appointmentId))
+                .thenReturn(Optional.of(appointment));
     }
 
     private ConsultationRecordRequest createRequest() {

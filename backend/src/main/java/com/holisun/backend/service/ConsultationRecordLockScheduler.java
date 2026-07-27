@@ -20,7 +20,7 @@ public class ConsultationRecordLockScheduler {
 
     @Scheduled(fixedRate = 60_000)
     public void lockExpiredConsultationRecords() {
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(30);
+        LocalDateTime cutoff = LocalDateTime.now().minus(ConsultationRecordService.EDIT_GRACE_PERIOD);
 
         for (UUID appointmentId :
                 appointmentRepository.findAppointmentIdsReadyForRecordLock(cutoff)) {

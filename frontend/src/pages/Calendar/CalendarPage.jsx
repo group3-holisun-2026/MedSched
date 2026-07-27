@@ -316,7 +316,10 @@ export default function CalendarPage() {
             );
         }
 
-        if (status === "COMPLETED") {
+        // Fisa de consultatie e continut clinic: RECEPTION nu are acces (ConsultationController
+        // e @PreAuthorize DOCTOR/ADMIN, iar ruta /appointments/:id/record e la fel de restrictiva),
+        // deci butonul ar fi dus receptia intr-un perete.
+        if (status === "COMPLETED" && (role === "ADMIN" || role === "DOCTOR")) {
             buttons.push(
                 <Button key="view-record" variant="outline" onClick={handleOpenRecord}>
                     Vezi fisa
