@@ -12,6 +12,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.holisun.backend.entity.Appointment;
+import com.holisun.backend.entity.Doctor;
+import com.holisun.backend.repository.AppointmentRepository;
+import com.holisun.backend.repository.DoctorRepository;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.UUID;
 
 /**
@@ -26,6 +34,8 @@ import java.util.UUID;
 public class ConsultationController {
 
     private final ConsultationRecordService consultationRecordService;
+    private final AppointmentRepository appointmentRepository;
+    private final DoctorRepository doctorRepository;
 
     @GetMapping
     @Audited(action = AuditAction.READ, entityName = "ConsultationRecord")
@@ -39,6 +49,7 @@ public class ConsultationController {
             @PathVariable UUID appointmentId,
             @Valid @RequestBody ConsultationRecordRequest dto
     ) {
+        assertDoctorOwnsAppointment(appointmentId);
         ConsultationRecordResponse response = consultationRecordService.create(appointmentId, dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -49,6 +60,49 @@ public class ConsultationController {
             @PathVariable UUID appointmentId,
             @Valid @RequestBody ConsultationRecordRequest dto
     ) {
+        assertDoctorOwnsAppointment(appointmentId);
         return ResponseEntity.ok(consultationRecordService.update(appointmentId, dto));
     }
+
+    private void assertDoctorOwnsAppointment(UUID appointmentId) {
+        if (!hasRole("DOCTOR")) {
+            return;
+        }
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Programarea nu a fost gasita."
+                ));
+
+        Doctor currentDoctor = doctorRepository.findByUserId(currentUserId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Contul curent nu este asociat unui medic."
+                ));
+
+        if (!currentDoctor.getId().equals(appointment.getDoctor().getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Doar medicul alocat poate modifica fisa de consultatie."
+            );
+        }
+    }
+
+    private UUID currentUserId() {
+        return (UUID) SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getPrincipal();
+    }
+
+    private boolean hasRole(String role) {
+        return SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equals("ROLE_" + role));
+    }
+
+
 }
