@@ -29,6 +29,7 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
     const [patientSearch, setPatientSearch] = useState('');
     const [showNewPatientForm, setShowNewPatientForm] = useState(false);
     const [newPatientName, setNewPatientName] = useState('');
+    const [newPatientPhone, setNewPatientPhone] = useState('');
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -100,7 +101,7 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
             let finalPatientId = formData.patientId;
 
             if (showNewPatientForm) {
-                const newPatient = await patientApi.create({ name: newPatientName });
+                const newPatient = await patientApi.create({ name: newPatientName, phone: newPatientPhone });
                 finalPatientId = newPatient.id;
             }
 
@@ -113,7 +114,7 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                 notes: formData.notes
             };
 
-            if (initialData) {
+            if (initialData?.id) {
                 await appointmentApi.update(initialData.id, payload);
                 toast.success("Programarea a fost actualizată cu succes.");
             } else {
@@ -172,9 +173,18 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                         <input
                             type="text"
                             required
+                            autoFocus
                             placeholder="Numele complet al pacientului"
                             value={newPatientName}
                             onChange={(e) => setNewPatientName(e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                            type="tel"
+                            required
+                            placeholder="Numar de telefon"
+                            value={newPatientPhone}
+                            onChange={(e) => setNewPatientPhone(e.target.value)}
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                         />
                         <button type="button" onClick={() => setShowNewPatientForm(false)} className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors">
