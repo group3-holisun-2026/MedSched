@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
@@ -10,7 +10,6 @@ import endOfDay from "date-fns/endOfDay";
 import getDay from "date-fns/getDay";
 import ro from "date-fns/locale/ro";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import "./calendar-overrides.css";
 import { appointmentApi } from "../../api/appointments";
 import { useAuth } from "../../context/AuthContext";
 import Modal from "../../components/Modal";
@@ -28,6 +27,14 @@ const localizer = dateFnsLocalizer({
     locales,
 });
 
+// Doar time-of-day-ul din aceste date conteaza pentru react-big-calendar (min/max) - ziua e arbitrara,
+// dar TREBUIE sa fie o data apropiata de "acum" (nu una fixa din trecut, gen 1972), altfel react-big-calendar
+// compara ore aflate in DST-uri diferite (ex: ianuarie 1972 = ora de iarna UTC+2, iulie 2026 = ora de vara
+// UTC+3) si intervalul afisat se decaleaza cu o ora fata de min/max cerute.
+const calendarBoundsRef = new Date();
+const CALENDAR_MIN_TIME = new Date(calendarBoundsRef.getFullYear(), calendarBoundsRef.getMonth(), calendarBoundsRef.getDate(), 8, 0, 0);
+const CALENDAR_MAX_TIME = new Date(calendarBoundsRef.getFullYear(), calendarBoundsRef.getMonth(), calendarBoundsRef.getDate(), 20, 0, 0);
+
 const STATUS_COLORS = {
     SCHEDULED: "#3174ad",
     CONFIRMED: "#2e8b57",
@@ -40,37 +47,15 @@ const STATUS_COLORS = {
 const STATUS_LABELS = {
     SCHEDULED: "Programat",
     CONFIRMED: "Confirmat",
-    IN_PROGRESS: "Consultație activă",
+    IN_PROGRESS: "Consultatie activa",
     COMPLETED: "Finalizat",
     NO_SHOW: "Neprezentat",
     CANCELLED: "Anulat",
 };
 
-// Galbenul (IN_PROGRESS) si grina (CANCELLED) sunt prea deschise pentru text alb — pe ele
-// scriem cu inchis, altfel eticheta nu se poate citi pe blocul colorat.
-const DARK_TEXT_STATUSES = new Set(["IN_PROGRESS", "CANCELLED"]);
-
 function eventStyleGetter(event) {
     const backgroundColor = STATUS_COLORS[event.status] || "#3174ad";
-    return {
-        style: {
-            backgroundColor,
-            color: DARK_TEXT_STATUSES.has(event.status) ? "#1f2937" : "#ffffff",
-        },
-    };
-}
-
-// Titlul intr-o singura linie ("Pacient — Serviciu (Medic)") se reteza mereu. Il spargem
-// pe randuri, ca sa se vada cat incape, si pastram textul complet in tooltip-ul nativ.
-function EventContent({ event }) {
-    const appointment = event.raw;
-    return (
-        <div title={event.title} style={{ lineHeight: 1.25, fontSize: "11px" }}>
-            <div style={{ fontWeight: 600 }}>{appointment.patientName}</div>
-            <div>{appointment.serviceName}</div>
-            <div style={{ opacity: 0.85 }}>{appointment.doctorName}</div>
-        </div>
-    );
+    return { style: { backgroundColor } };
 }
 
 export default function CalendarPage() {
@@ -98,13 +83,6 @@ export default function CalendarPage() {
     const [eventDetail, setEventDetail] = useState(null);
     const [eventDetailLoading, setEventDetailLoading] = useState(false);
     const [actionProcessing, setActionProcessing] = useState(false);
-
-    // Memoizat: un obiect literal nou la fiecare randare ar reinitializa formularul de
-    // programare (vezi efectul de hidratare din AppointmentForm).
-    const createInitialData = useMemo(
-        () => (selectedSlot ? { startTime: selectedSlot.start.toISOString() } : null),
-        [selectedSlot]
-    );
 
     const fetchAppointments = useCallback(async ({ isPoll = false } = {}) => {
         const from = view === "day" ? startOfDay(date) : startOfWeek(date, { locale: ro });
@@ -150,17 +128,13 @@ export default function CalendarPage() {
         fetchAppointments();
     }, [fetchAppointments]);
 
-    // Nu facem polling cat timp un modal e deschis: reimprospatarea re-randeaza pagina sub
-    // formularul pe care userul tocmai il completeaza, fara ca el sa vada calendarul oricum.
     useEffect(() => {
-        if (modalMode) return undefined;
-
         pollingRef.current = setInterval(() => {
             fetchAppointments({ isPoll: true });
         }, 20000);
 
         return () => clearInterval(pollingRef.current);
-    }, [fetchAppointments, modalMode]);
+    }, [fetchAppointments]);
 
     function handleSelectSlot(slotInfo) {
         setSelectedSlot(slotInfo);
@@ -210,11 +184,14 @@ export default function CalendarPage() {
     }
 
     function handleEditFromDetails() {
-        const raw = selectedEvent.raw;
+        // Folosim eventDetail (AppointmentResponse complet), nu selectedEvent.raw (DTO-ul
+        // "slim" de calendar) - raw nu are patient/doctor/room/service ca sa putem prefilla
+        // formularul de reprogramare cu ID-urile curente.
+        if (!eventDetail) return;
         setSelectedSlot({
-            start: new Date(raw.startTime),
-            end: new Date(raw.endTime),
-            initialData: raw,
+            start: new Date(eventDetail.startTime),
+            end: new Date(eventDetail.endTime),
+            initialData: eventDetail,
         });
         setModalMode("edit");
     }
@@ -316,10 +293,7 @@ export default function CalendarPage() {
             );
         }
 
-        // Fisa de consultatie e continut clinic: RECEPTION nu are acces (ConsultationController
-        // e @PreAuthorize DOCTOR/ADMIN, iar ruta /appointments/:id/record e la fel de restrictiva),
-        // deci butonul ar fi dus receptia intr-un perete.
-        if (status === "COMPLETED" && (role === "ADMIN" || role === "DOCTOR")) {
+        if (status === "COMPLETED") {
             buttons.push(
                 <Button key="view-record" variant="outline" onClick={handleOpenRecord}>
                     Vezi fisa
@@ -389,17 +363,12 @@ export default function CalendarPage() {
                         onNavigate={setDate}
                         views={["day", "week"]}
                         style={{ height: "100%" }}
+                        min={CALENDAR_MIN_TIME}
+                        max={CALENDAR_MAX_TIME}
                         selectable
                         onSelectSlot={handleSelectSlot}
                         onSelectEvent={handleSelectEvent}
                         eventPropGetter={eventStyleGetter}
-                        components={{ event: EventContent }}
-                        // Slot de 15 minute, 4 sloturi pe grup => o eticheta pe ora, dar
-                        // selectia din grila cade pe :00 / :15 / :30 / :45.
-                        step={15}
-                        timeslots={4}
-                        // Grila ramane pe 24h (nu ascundem nimic), dar se deschide la ora 7.
-                        scrollToTime={new Date(1970, 0, 1, 7, 0, 0)}
                     />
 
                     {events.length === 0 && !error && (
@@ -413,7 +382,11 @@ export default function CalendarPage() {
             {/* Modal creare programare */}
             <Modal isOpen={modalMode === "create"} onClose={closeModal} title="Programare noua">
                 <AppointmentForm
-                    initialData={createInitialData}
+                    initialData={
+                        selectedSlot
+                            ? { startTime: selectedSlot.start.toISOString() }
+                            : null
+                    }
                     onSave={handleFormSaved}
                     onCancel={closeModal}
                 />
