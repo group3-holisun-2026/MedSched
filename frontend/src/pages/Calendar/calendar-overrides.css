@@ -1,0 +1,42 @@
+/*
+ * Ajustari peste stilul implicit din react-big-calendar.
+ *
+ * Motiv: la 40px pe ora (implicit) o consultatie de 20-30 de minute are 13-20px inaltime,
+ * adica o singura linie taiata de text. Cu pasul de 15 minute un grup de sloturi = o ora,
+ * deci inaltimea de mai jos se imparte in 4 sloturi de cate 30px.
+ */
+.rbc-time-view .rbc-timeslot-group {
+    min-height: 120px;
+}
+
+.rbc-time-view .rbc-time-slot {
+    min-height: 30px;
+}
+
+/* Linia de separare intre sloturile de 15 min ramane discreta; ora plina e mai apasata. */
+.rbc-time-view .rbc-time-slot + .rbc-time-slot {
+    border-top: 1px dotted #e6e6e6;
+}
+
+.rbc-time-view .rbc-label {
+    font-size: 12px;
+    padding: 0 6px;
+}
+
+/* Textul evenimentului se incadreaza pe mai multe randuri in loc sa fie retezat. */
+.rbc-event {
+    padding: 3px 6px;
+    border: none;
+}
+
+.rbc-event-label {
+    font-size: 10px;
+    opacity: 0.9;
+    margin-bottom: 1px;
+}
+
+.rbc-event-content {
+    white-space: normal;
+    overflow: hidden;
+    word-break: break-word;
+}

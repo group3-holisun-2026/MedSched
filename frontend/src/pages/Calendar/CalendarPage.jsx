@@ -10,6 +10,7 @@ import endOfDay from "date-fns/endOfDay";
 import getDay from "date-fns/getDay";
 import ro from "date-fns/locale/ro";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import "./calendar-overrides.css";
 import { appointmentApi } from "../../api/appointments";
 import { useAuth } from "../../context/AuthContext";
 import Modal from "../../components/Modal";
@@ -45,9 +46,31 @@ const STATUS_LABELS = {
     CANCELLED: "Anulat",
 };
 
+// Galbenul (IN_PROGRESS) si grina (CANCELLED) sunt prea deschise pentru text alb — pe ele
+// scriem cu inchis, altfel eticheta nu se poate citi pe blocul colorat.
+const DARK_TEXT_STATUSES = new Set(["IN_PROGRESS", "CANCELLED"]);
+
 function eventStyleGetter(event) {
     const backgroundColor = STATUS_COLORS[event.status] || "#3174ad";
-    return { style: { backgroundColor } };
+    return {
+        style: {
+            backgroundColor,
+            color: DARK_TEXT_STATUSES.has(event.status) ? "#1f2937" : "#ffffff",
+        },
+    };
+}
+
+// Titlul intr-o singura linie ("Pacient — Serviciu (Medic)") se reteza mereu. Il spargem
+// pe randuri, ca sa se vada cat incape, si pastram textul complet in tooltip-ul nativ.
+function EventContent({ event }) {
+    const appointment = event.raw;
+    return (
+        <div title={event.title} style={{ lineHeight: 1.25, fontSize: "11px" }}>
+            <div style={{ fontWeight: 600 }}>{appointment.patientName}</div>
+            <div>{appointment.serviceName}</div>
+            <div style={{ opacity: 0.85 }}>{appointment.doctorName}</div>
+        </div>
+    );
 }
 
 export default function CalendarPage() {
@@ -367,6 +390,13 @@ export default function CalendarPage() {
                         onSelectSlot={handleSelectSlot}
                         onSelectEvent={handleSelectEvent}
                         eventPropGetter={eventStyleGetter}
+                        components={{ event: EventContent }}
+                        // Slot de 15 minute, 4 sloturi pe grup => o eticheta pe ora, dar
+                        // selectia din grila cade pe :00 / :15 / :30 / :45.
+                        step={15}
+                        timeslots={4}
+                        // Grila ramane pe 24h (nu ascundem nimic), dar se deschide la ora 7.
+                        scrollToTime={new Date(1970, 0, 1, 7, 0, 0)}
                     />
 
                     {events.length === 0 && !error && (

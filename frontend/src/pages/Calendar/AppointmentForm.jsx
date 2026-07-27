@@ -324,6 +324,9 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                         value={formData.startTime}
                         onChange={handleChange}
                         required
+                        // 900s = 15 min, ca sageatile sa mearga pe :00/:15/:30/:45, la fel ca
+                        // pasul grilei de calendar.
+                        step="900"
                         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
