@@ -28,6 +28,14 @@ const localizer = dateFnsLocalizer({
     locales,
 });
 
+// Doar time-of-day-ul din aceste date conteaza pentru react-big-calendar (min/max) — ziua e
+// arbitrara, dar TREBUIE sa fie apropiata de "acum", nu o data fixa din trecut (gen 1970/1972).
+// Altfel react-big-calendar compara ore aflate in DST-uri diferite (ianuarie 1972 = ora de iarna
+// UTC+2, iulie 2026 = ora de vara UTC+3) si intervalul afisat se decaleaza cu o ora fata de cel cerut.
+const calendarBoundsRef = new Date();
+const CALENDAR_MIN_TIME = new Date(calendarBoundsRef.getFullYear(), calendarBoundsRef.getMonth(), calendarBoundsRef.getDate(), 8, 0, 0);
+const CALENDAR_MAX_TIME = new Date(calendarBoundsRef.getFullYear(), calendarBoundsRef.getMonth(), calendarBoundsRef.getDate(), 20, 0, 0);
+
 const STATUS_COLORS = {
     SCHEDULED: "#3174ad",
     CONFIRMED: "#2e8b57",
@@ -101,8 +109,12 @@ export default function CalendarPage() {
 
     // Memoizat: un obiect literal nou la fiecare randare ar reinitializa formularul de
     // programare (vezi efectul de hidratare din AppointmentForm).
+    //
+    // Ora slotului merge ca ora de perete locala, nu prin toISOString(): backendul lucreaza cu
+    // LocalDateTime, iar formularul taie oricum stringul la 16 caractere. Cu UTC, un slot de 09:00
+    // vara ajungea prefillat ca 06:00 (offsetul Romaniei) si se salva tot asa.
     const createInitialData = useMemo(
-        () => (selectedSlot ? { startTime: selectedSlot.start.toISOString() } : null),
+        () => (selectedSlot ? { startTime: format(selectedSlot.start, "yyyy-MM-dd'T'HH:mm") } : null),
         [selectedSlot]
     );
 
@@ -210,11 +222,20 @@ export default function CalendarPage() {
     }
 
     function handleEditFromDetails() {
-        const raw = selectedEvent.raw;
+        // Folosim eventDetail (AppointmentResponse complet, deja incarcat in modalul de detalii),
+        // nu selectedEvent.raw — DTO-ul "slim" de calendar nu are patient/doctor/room/service, deci
+        // formularul de reprogramare ramanea neprefillat cu ID-urile curente.
+        //
+        // Butoanele de actiune nu se randeaza cat timp detaliul se incarca, deci aici eventDetail
+        // lipseste doar daca fetch-ul a picat — o spunem, in loc sa lasam butonul mort.
+        if (!eventDetail) {
+            toast.error("Detaliile programarii nu s-au putut incarca. Reincercati.");
+            return;
+        }
         setSelectedSlot({
-            start: new Date(raw.startTime),
-            end: new Date(raw.endTime),
-            initialData: raw,
+            start: new Date(eventDetail.startTime),
+            end: new Date(eventDetail.endTime),
+            initialData: eventDetail,
         });
         setModalMode("edit");
     }
@@ -398,8 +419,10 @@ export default function CalendarPage() {
                         // selectia din grila cade pe :00 / :15 / :30 / :45.
                         step={15}
                         timeslots={4}
-                        // Grila ramane pe 24h (nu ascundem nimic), dar se deschide la ora 7.
-                        scrollToTime={new Date(1970, 0, 1, 7, 0, 0)}
+                        // Grila e limitata la programul clinicii (08:00-20:00), deci nu mai e nevoie
+                        // de scrollToTime — ziua se deschide direct pe prima ora utila.
+                        min={CALENDAR_MIN_TIME}
+                        max={CALENDAR_MAX_TIME}
                     />
 
                     {events.length === 0 && !error && (
