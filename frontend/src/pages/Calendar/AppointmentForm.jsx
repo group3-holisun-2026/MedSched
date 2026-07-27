@@ -208,8 +208,12 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                     >
                         <option value="" disabled>-- Selectați medicul curant --</option>
+                        {/* DoctorResponse expune `fullName` + `speciality` — nu firstName/lastName,
+                            care erau mereu undefined si faceau toate optiunile identice ("Dr.  "). */}
                         {doctors.map(d => (
-                            <option key={d.id} value={d.id}>Dr. {d.firstName} {d.lastName}</option>
+                            <option key={d.id} value={d.id}>
+                                {d.fullName}{d.speciality ? ` — ${d.speciality}` : ''}
+                            </option>
                         ))}
                     </select>
                 </div>
