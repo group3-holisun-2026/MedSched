@@ -3,6 +3,7 @@ package com.holisun.backend.controller;
 import com.holisun.backend.config.MethodSecurityConfig;
 import com.holisun.backend.dto.CalendarAppointmentResponse;
 import com.holisun.backend.entity.Doctor;
+import com.holisun.backend.repository.AppointmentRepository;
 import com.holisun.backend.repository.DoctorRepository;
 import com.holisun.backend.security.JwtAuthenticationFilter;
 import com.holisun.backend.service.AppointmentService;
@@ -44,6 +45,7 @@ class AppointmentControllerSecurityTest {
     @MockitoBean private AppointmentService appointmentService;
     @MockitoBean private CalendarService calendarService;
     @MockitoBean private DoctorRepository doctorRepository;
+    @MockitoBean private AppointmentRepository appointmentRepository;
 
     @Test
     @WithMockUser(roles = "DOCTOR")

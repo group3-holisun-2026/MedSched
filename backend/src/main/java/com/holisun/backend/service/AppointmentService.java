@@ -146,7 +146,8 @@ public class AppointmentService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctorul nu a fost gasit"));
 
             if(!doctor.getId().equals(appointment.getDoctor().getId()))
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Doctorul nu a fost gasit");
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Puteti face check-in doar pe propriile programari");
         }
 
         appointmentStateMachine.assertTransition(appointment.getStatus(), AppointmentStatus.IN_PROGRESS);
