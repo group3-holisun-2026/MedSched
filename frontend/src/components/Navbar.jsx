@@ -106,6 +106,11 @@ function Navbar() {
                     <Link to="/audit-log" style={linkStyle}>
                         Audit Log
                     </Link>
+
+                    {/* Linkul nou adăugat pentru Rapoarte */}
+                    <Link to="/rapoarte/vanzari" style={linkStyle}>
+                        Rapoarte
+                    </Link>
                 </>
             )}
 
