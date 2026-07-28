@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PatientPage from './pages/Patient/PatientPage';
@@ -15,6 +16,7 @@ import Navbar from './components/Navbar';
 function App() {
     return (
         <BrowserRouter>
+            <Toaster richColors position="top-right" closeButton />
             <AuthProvider>
                 <Navbar />
 
