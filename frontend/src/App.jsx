@@ -11,6 +11,7 @@ import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
+import NoShowReportPage from './pages/Reports/NoShowReportPage';
 
 function App() {
     return (
@@ -84,6 +85,14 @@ function App() {
                         element={
                             <PrivateRoute roles={['ADMIN']}>
                                 <EquipmentPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route // Merge conflict? How sad...
+                        path="/rapoarte/no-show"
+                        element={
+                            <PrivateRoute roles={['ADMIN']}>
+                                <NoShowReportPage />
                             </PrivateRoute>
                         }
                     />
