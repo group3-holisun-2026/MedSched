@@ -11,6 +11,7 @@ import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
+import AppointmentConfirmPage from './pages/Public/AppointmentConfirmPage';
 
 function App() {
     return (
@@ -22,6 +23,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<LoginPage />} />
                     <Route path="/login" element={<LoginPage />} />
+                    <Route path="/c/:token" element={<AppointmentConfirmPage />} />
 
                     <Route
                         path="/dashboard"

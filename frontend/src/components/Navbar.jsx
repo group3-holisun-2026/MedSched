@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const linkStyle = { marginRight: '20px', color: 'white', textDecoration: 'none' };
@@ -7,6 +7,13 @@ const linkStyle = { marginRight: '20px', color: 'white', textDecoration: 'none' 
 function Navbar() {
     const { isAuthenticated, logout, user } = useAuth();
     const navigate = useNavigate();
+    const { pathname } = useLocation();
+
+    // Ascunde complet Navbar-ul pentru rutele publice (ex: link-ul din SMS)
+    if (pathname.startsWith('/c/')) {
+        return null;
+    }
+
     const [menuOpen, setMenuOpen] = useState(false);
 
     const handleLogout = () => {
@@ -26,8 +33,7 @@ function Navbar() {
         );
     }
 
-    // Medicii au un navbar restrans (burger) - nu au acces la linkurile administrative,
-    // deci nu are sens sa le afisam un meniu orizontal la fel de incarcat ca la ADMIN/RECEPTION.
+    // Medicii au un navbar restrans (burger)
     if (role === 'DOCTOR') {
         return (
             <nav style={{ padding: '15px', background: '#2c3e50', marginBottom: '20px', position: 'relative' }}>
