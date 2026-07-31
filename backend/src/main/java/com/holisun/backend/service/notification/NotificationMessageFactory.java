@@ -13,7 +13,7 @@ public class NotificationMessageFactory {
     @Value("${app.notifications.clinic-phone}")
     private String clinicPhone;
 
-    @Value("${app.notifications.base-url}")
+    @Value("${app.notifications.public-base-url}")
     private String baseUrl;
 
     // Formatoare de dată și oră
