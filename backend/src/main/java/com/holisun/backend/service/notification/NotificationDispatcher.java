@@ -2,8 +2,8 @@ package com.holisun.backend.service.notification;
 
 import com.holisun.backend.entity.Notification;
 import com.holisun.backend.enums.NotificationStatus;
-import com.holisun.backend.exception.SmsPermanentException;
-import com.holisun.backend.exception.SmsTransientException;
+import com.holisun.backend.exception.EmailPermanentException;
+import com.holisun.backend.exception.EmailTransientException;
 import com.holisun.backend.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ import java.util.List;
 public class NotificationDispatcher {
 
     private final NotificationRepository notificationRepository;
-    private final SmsSender smsSender;
+    private final EmailSender emailSender;
 
     private static final int[] BACKOFF = {1, 5, 15, 60, 360}; // in minutes
 
@@ -35,8 +35,8 @@ public class NotificationDispatcher {
 
         for (Notification notification : pending) {
             try {
-                // Try to send the SMS
-                String providerId = smsSender.send(notification.getRecipientPhone(), notification.getBody());
+                // Try to send the Email
+                String providerId = emailSender.send(notification.getRecipientEmail(), notification.getSubject(), notification.getBody());
                 
                 // Success
                 notification.setStatus(NotificationStatus.SENT);
@@ -46,14 +46,14 @@ public class NotificationDispatcher {
                 
                 notificationRepository.save(notification);
 
-            } catch (SmsPermanentException e) {
-                // Permanent failure (e.g. invalid number), do not retry
-                log.warn("Permanent SMS failure for notification {}: {}", notification.getId(), e.getMessage());
+            } catch (EmailPermanentException e) {
+                // Permanent failure (e.g. auth failed), do not retry
+                log.warn("Permanent Email failure for notification {}: {}", notification.getId(), e.getMessage());
                 notification.setStatus(NotificationStatus.FAILED);
                 notification.setLastError(e.getMessage());
                 notificationRepository.save(notification);
 
-            } catch (SmsTransientException e) {
+            } catch (EmailTransientException e) {
                 // Transient failure (e.g. timeout), apply backoff and retry
                 handleTransientFailure(notification, e);
             } catch (Exception e) {
@@ -64,7 +64,7 @@ public class NotificationDispatcher {
     }
 
     private void handleTransientFailure(Notification notification, Exception e) {
-        log.warn("Transient SMS failure for notification {}: {}", notification.getId(), e.getMessage());
+        log.warn("Transient Email failure for notification {}: {}", notification.getId(), e.getMessage());
         int attempts = notification.getAttempts() + 1;
         notification.setAttempts(attempts);
 

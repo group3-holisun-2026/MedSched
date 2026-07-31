@@ -6,7 +6,6 @@ import com.holisun.backend.enums.NotificationStatus;
 import com.holisun.backend.enums.NotificationTrigger;
 import com.holisun.backend.enums.NotificationType;
 import com.holisun.backend.repository.NotificationRepository;
-import com.holisun.backend.util.PhoneNumberNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,15 +22,14 @@ public class NotificationOutboxServiceImpl implements NotificationOutboxService 
 
     private final NotificationRepository notificationRepository;
     private final NotificationMessageFactory notificationMessageFactory;
-    private final PhoneNumberNormalizer phoneNumberNormalizer;
 
     private static final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     @Transactional
     public void enqueueConfirmation(Appointment appointment) {
-        String body = notificationMessageFactory.createConfirmationMessage(appointment);
-        Notification notification = buildBaseNotification(appointment, NotificationTrigger.CONFIRMATION, body, LocalDateTime.now());
+        EmailContent content = notificationMessageFactory.createConfirmationMessage(appointment);
+        Notification notification = buildBaseNotification(appointment, NotificationTrigger.CONFIRMATION, content, LocalDateTime.now());
         notificationRepository.save(notification);
     }
 
@@ -40,16 +38,15 @@ public class NotificationOutboxServiceImpl implements NotificationOutboxService 
     public void enqueueReminder(Appointment appointment) {
         LocalDateTime nextAttemptAt = appointment.getStartTime().minusHours(24);
         if (nextAttemptAt.isBefore(LocalDateTime.now()) || nextAttemptAt.isEqual(LocalDateTime.now())) {
-            return; // nu face nimic dacă startTime - 24h <= now()
+            return;
         }
 
-        // Token: 16 caractere URL-safe, generat cu SecureRandom (12 bytes -> Base64 URL-safe fără padding)
         byte[] randomBytes = new byte[12];
         secureRandom.nextBytes(randomBytes);
         String confirmationToken = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
 
-        String body = notificationMessageFactory.createReminderMessage(appointment, confirmationToken);
-        Notification notification = buildBaseNotification(appointment, NotificationTrigger.REMINDER_24H, body, nextAttemptAt);
+        EmailContent content = notificationMessageFactory.createReminderMessage(appointment, confirmationToken);
+        Notification notification = buildBaseNotification(appointment, NotificationTrigger.REMINDER_24H, content, nextAttemptAt);
         notification.setConfirmationToken(confirmationToken);
         
         notificationRepository.save(notification);
@@ -60,8 +57,8 @@ public class NotificationOutboxServiceImpl implements NotificationOutboxService 
     public void enqueueRescheduled(Appointment appointment) {
         cancelPendingReminders(appointment.getId());
 
-        String body = notificationMessageFactory.createRescheduledMessage(appointment);
-        Notification notification = buildBaseNotification(appointment, NotificationTrigger.RESCHEDULED, body, LocalDateTime.now());
+        EmailContent content = notificationMessageFactory.createRescheduledMessage(appointment);
+        Notification notification = buildBaseNotification(appointment, NotificationTrigger.RESCHEDULED, content, LocalDateTime.now());
         notificationRepository.save(notification);
     }
 
@@ -70,8 +67,8 @@ public class NotificationOutboxServiceImpl implements NotificationOutboxService 
     public void enqueueCancelled(Appointment appointment) {
         cancelPendingReminders(appointment.getId());
 
-        String body = notificationMessageFactory.createCancelledMessage(appointment);
-        Notification notification = buildBaseNotification(appointment, NotificationTrigger.CANCELLED, body, LocalDateTime.now());
+        EmailContent content = notificationMessageFactory.createCancelledMessage(appointment);
+        Notification notification = buildBaseNotification(appointment, NotificationTrigger.CANCELLED, content, LocalDateTime.now());
         notificationRepository.save(notification);
     }
 
@@ -87,21 +84,22 @@ public class NotificationOutboxServiceImpl implements NotificationOutboxService 
         }
     }
 
-    private Notification buildBaseNotification(Appointment appointment, NotificationTrigger trigger, String body, LocalDateTime nextAttemptAt) {
+    private Notification buildBaseNotification(Appointment appointment, NotificationTrigger trigger, EmailContent content, LocalDateTime nextAttemptAt) {
         Notification notification = new Notification();
         notification.setAppointment(appointment);
-        notification.setType(NotificationType.SMS);
+        notification.setType(NotificationType.EMAIL);
         notification.setTrigger(trigger);
-        notification.setBody(body);
+        notification.setSubject(content.subject());
+        notification.setBody(content.body());
         notification.setNextAttemptAt(nextAttemptAt);
 
-        try {
-            String phone = phoneNumberNormalizer.normalizePhoneNumber(appointment.getPatient().getPhone());
-            notification.setRecipientPhone(phone);
-            notification.setStatus(NotificationStatus.PENDING);
-        } catch (IllegalArgumentException e) {
+        String email = appointment.getPatient().getEmail();
+        if (email == null || email.isBlank() || !email.contains("@")) {
             notification.setStatus(NotificationStatus.FAILED);
-            notification.setLastError("Invalid phone number: " + e.getMessage());
+            notification.setLastError("Invalid email address: " + email);
+        } else {
+            notification.setRecipientEmail(email);
+            notification.setStatus(NotificationStatus.PENDING);
         }
 
         return notification;
