@@ -106,6 +106,10 @@ function Navbar() {
                     <Link to="/audit-log" style={linkStyle}>
                         Audit Log
                     </Link>
+                    
+                    <Link to="/admin/notificari" style={linkStyle}>
+                        Notificări
+                    </Link>
                 </>
             )}
 

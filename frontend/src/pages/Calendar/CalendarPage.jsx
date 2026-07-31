@@ -462,9 +462,31 @@ export default function CalendarPage() {
                             {format(selectedEvent.end, "HH:mm")}
                         </p>
 
-                        {eventDetailLoading && <p style={{ color: "#666" }}>Se incarca actiunile disponibile...</p>}
+                        {eventDetailLoading && (
+                        <p style={{ color: "#666" }}>
+                            Se incarca actiunile disponibile...
+                        </p>
+                    )}
 
-                        {renderActionButtons()}
+                            <hr style={{ margin: "16px 0" }} />
+
+                            <h3>Notificări SMS</h3>
+
+                        <div
+                                style={{
+                                    border: "1px solid #ddd",
+                                    borderRadius: "8px",
+                                    padding: "12px",
+                                    marginBottom: "16px",
+                                    backgroundColor: "#fafafa",
+    }}
+>
+    <p><strong>Status:</strong> În așteptare</p>
+    <p><strong>Telefon:</strong> {eventDetail?.patient?.phone || "-"}</p>
+    <p><strong>Tip notificare:</strong> Confirmare programare</p>
+</div>
+
+{renderActionButtons()}
                     </div>
                 )}
             </Modal>
