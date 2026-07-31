@@ -30,6 +30,7 @@ import java.util.UUID;
 @PreAuthorize("hasAnyRole('ADMIN','DOCTOR','RECEPTION')")
 public class PatientController {
 
+    //TODO Verify it works with PatientService or with PatientServiceImpl
     private final PatientService patientService;
 
     @GetMapping
