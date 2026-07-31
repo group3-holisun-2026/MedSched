@@ -57,5 +57,6 @@ export const appointmentApi = {
     },
 };
 
+const DOCTOR_IDS_FORMAT = 'repeated'; 
 
 export default appointmentApi;
