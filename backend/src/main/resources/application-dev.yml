@@ -5,6 +5,12 @@ spring:
     password: ${DB_PASS:EPIC}
     driver-class-name: org.postgresql.Driver
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: medsched2026@gmail.com
+    password: ${ACCOUNT_PASSWORD}
+
   jpa:
     hibernate:
       ddl-auto: update # Creează/actualizează tabelele automat în dev
