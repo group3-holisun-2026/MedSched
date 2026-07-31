@@ -14,12 +14,27 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.holisun.backend.repository.AppointmentRepository;
+import com.holisun.backend.repository.DoctorRepository;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.holisun.backend.entity.Appointment;
+import com.holisun.backend.entity.Doctor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 /**
  * Criteriul de acceptanta #3 (F-202): un RECEPTION nu poate accesa fisa de consultatie
@@ -41,6 +56,12 @@ class ConsultationControllerSecurityTest {
 
     @MockitoBean
     private ConsultationRecordService consultationRecordService;
+
+    @MockitoBean
+    private AppointmentRepository appointmentRepository;
+
+    @MockitoBean
+    private DoctorRepository doctorRepository;
 
     @Test
     @WithMockUser(roles = "RECEPTION")
@@ -67,10 +88,54 @@ class ConsultationControllerSecurityTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void differentDoctorCannotUpdateConsultationRecord() throws Exception {
+        UUID loggedInUserId = UUID.randomUUID();
+
+        Doctor assignedDoctor = new Doctor();
+        assignedDoctor.setId(UUID.randomUUID());
+
+        Doctor loggedInDoctor = new Doctor();
+        loggedInDoctor.setId(UUID.randomUUID());
+
+        Appointment appointment = new Appointment();
+        appointment.setDoctor(assignedDoctor);
+
+        given(appointmentRepository.findById(APPOINTMENT_ID))
+                .willReturn(Optional.of(appointment));
+
+        given(doctorRepository.findByUserId(loggedInUserId))
+                .willReturn(Optional.of(loggedInDoctor));
+
+        mockMvc.perform(put(
+                        "/api/appointments/{appointmentId}/record",
+                        APPOINTMENT_ID
+                )
+                        .with(authenticatedAs(loggedInUserId, "DOCTOR"))
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
     private ConsultationRecordResponse sampleResponse() {
         return new ConsultationRecordResponse(
                 UUID.randomUUID(), APPOINTMENT_ID, "motiv", "anamneza", "examen clinic",
                 "diagnostic", "reteta", false, LocalDateTime.now(), LocalDateTime.now()
+        );
+    }
+
+    private static RequestPostProcessor authenticatedAs(
+            UUID userId,
+            String role
+    ) {
+        return authentication(
+                new UsernamePasswordAuthenticationToken(
+                        userId,
+                        null,
+                        List.of(
+                                new SimpleGrantedAuthority("ROLE_" + role)
+                        )
+                )
         );
     }
 }

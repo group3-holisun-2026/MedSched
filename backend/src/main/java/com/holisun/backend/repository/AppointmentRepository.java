@@ -51,4 +51,21 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     List<Appointment> findByDoctorIdInAndStartTimeLessThanAndEndTimeGreaterThan(List<UUID> doctorIds, LocalDateTime end, LocalDateTime start);
 
     List<Appointment> findByRoomIdAndStartTimeBetween(UUID roomId, LocalDateTime from, LocalDateTime to);
+
+    @Query("""
+        SELECT a.id
+        FROM Appointment a
+        WHERE a.status = com.holisun.backend.enums.AppointmentStatus.COMPLETED
+          AND a.completedAt IS NOT NULL
+          AND a.completedAt <= :cutoff
+          AND EXISTS (
+              SELECT cr.id
+              FROM ConsultationRecord cr
+              WHERE cr.appointmentId = a.id
+                AND cr.locked = false
+          )
+        """)
+    List<UUID> findAppointmentIdsReadyForRecordLock(
+            @Param("cutoff") LocalDateTime cutoff
+    );
 }

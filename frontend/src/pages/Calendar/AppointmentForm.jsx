@@ -10,6 +10,18 @@ import { doctorApi } from '../../api/doctors';
 import { roomApi } from '../../api/rooms';
 import { appointmentApi } from '../../api/appointments';
 
+// Optiuni fixe pentru selectorul de ora, intre 08:00 si 20:00 (programul clinicii), din 15 in 15
+// minute — acelasi pas ca grila de calendar. Folosim <select> in loc de <input type="time" min max>
+// pentru ca browserele nu filtreaza selectorul nativ de ora dupa min/max: doar valideaza la submit,
+// deci userul tot putea derula prin toate cele 24h. Cu select, orele din afara programului nu exista.
+const TIME_SLOT_OPTIONS = [];
+for (let h = 8; h <= 20; h++) {
+    for (let m = 0; m < 60; m += 15) {
+        if (h === 20 && m > 0) break;
+        TIME_SLOT_OPTIONS.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+}
+
 const AppointmentForm = ({ initialData, onSave, onCancel }) => {
     const [formData, setFormData] = useState({
         patientId: '',
@@ -29,33 +41,27 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
     const [patientSearch, setPatientSearch] = useState('');
     const [showNewPatientForm, setShowNewPatientForm] = useState(false);
     const [newPatientName, setNewPatientName] = useState('');
+    const [newPatientPhone, setNewPatientPhone] = useState('');
 
+    // Listele de selectie nu depind de programarea editata — le incarcam o singura data, la
+    // montare. Inainte, acest efect depindea de `initialData`, iar parintele recreeaza acel
+    // obiect la fiecare randare: polling-ul de 20s al calendarului declansa un re-fetch care
+    // punea formularul in "loading" si ii golea campurile in timp ce userul completa.
     useEffect(() => {
         const fetchAllData = async () => {
             try {
                 setLoading(true);
                 const [patientsRes, docsRes, roomsRes, servRes] = await Promise.all([
-                    patientApi.getAll().catch(() => [{id: 1, name: 'Ion Popescu', cnp: '1234567890123'}]),
-                    doctorApi.getAll().catch(() => [{id: 1, firstName: 'Andrei', lastName: 'Ionescu'}]),
-                    roomApi.getAll().catch(() => [{id: 1, name: 'Cabinet 1'}]),
-                    serviceApi.getAll().catch(() => [{id: 1, name: 'Consultație Generală', defaultDurationMinutes: 30}])
+                    patientApi.getAll().catch(() => []),
+                    doctorApi.getAll().catch(() => []),
+                    roomApi.getAll().catch(() => []),
+                    serviceApi.getAll().catch(() => [])
                 ]);
 
                 setPatients(patientsRes);
                 setDoctors(docsRes);
                 setRooms(roomsRes);
                 setServices(servRes);
-
-                if (initialData) {
-                    setFormData({
-                        patientId: initialData.patientId || '',
-                        doctorId: initialData.doctorId || '',
-                        roomId: initialData.roomId || '',
-                        serviceId: initialData.serviceId || '',
-                        startTime: initialData.startTime ? initialData.startTime.substring(0, 16) : '',
-                        notes: initialData.notes || ''
-                    });
-                }
             } catch (error) {
                 toast.error("A apărut o problemă la preluarea datelor. Vă rugăm să reîncercați.");
             } finally {
@@ -64,7 +70,27 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
         };
 
         fetchAllData();
-    }, [initialData]);
+    }, []);
+
+    // Hidratarea formularului se face doar cand se schimba efectiv programarea editata.
+    // Cheia e o valoare primitiva (id / ora de start), nu identitatea obiectului.
+    const initialDataKey = initialData?.id ?? initialData?.startTime ?? null;
+
+    useEffect(() => {
+        if (!initialData) return;
+        // initialData vine in doua forme: AppointmentResponse complet la reprogramare
+        // (patient/doctor/room/service ca obiecte imbricate) sau doar { startTime } la creare
+        // dintr-un slot liber. De-aia citim ambele variante — nested .id si flat *Id.
+        setFormData({
+            patientId: initialData.patient?.id ?? initialData.patientId ?? '',
+            doctorId: initialData.doctor?.id ?? initialData.doctorId ?? '',
+            roomId: initialData.room?.id ?? initialData.roomId ?? '',
+            serviceId: initialData.service?.id ?? initialData.serviceId ?? '',
+            startTime: initialData.startTime ? initialData.startTime.substring(0, 16) : '',
+            notes: initialData.notes || ''
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialDataKey]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -72,14 +98,49 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
     };
 
     const handlePatientSelect = (e) => {
-        const val = e.target.value;
-        if (val === 'NEW') {
-            setShowNewPatientForm(true);
-            setFormData(prev => ({ ...prev, patientId: '' }));
-        } else {
-            setShowNewPatientForm(false);
-            setFormData(prev => ({ ...prev, patientId: val }));
-        }
+        // Filtrul si-a facut treaba odata ce pacientul e ales; il golim ca lista sa ramana
+        // completa daca receptia vrea sa schimbe selectia.
+        setPatientSearch('');
+        setFormData(prev => ({ ...prev, patientId: e.target.value }));
+    };
+
+    const startNewPatient = () => {
+        setShowNewPatientForm(true);
+        setPatientSearch('');
+        setFormData(prev => ({ ...prev, patientId: '' }));
+    };
+
+    const cancelNewPatient = () => {
+        setShowNewPatientForm(false);
+        setNewPatientName('');
+        setNewPatientPhone('');
+    };
+
+    const clearPatientSelection = () => {
+        setFormData(prev => ({ ...prev, patientId: '' }));
+    };
+
+    const selectedPatient = patients.find(p => String(p.id) === String(formData.patientId));
+
+    // Data si ora raman tinute intern ca un singur string "YYYY-MM-DDTHH:mm" (formData.startTime),
+    // dar sunt afisate ca doua controale separate: un input de data si selectorul de ora de mai sus.
+    const startDatePart = formData.startTime ? formData.startTime.slice(0, 10) : '';
+    const startTimePart = formData.startTime ? formData.startTime.slice(11, 16) : '';
+
+    const handleStartDateChange = (e) => {
+        const date = e.target.value;
+        setFormData(prev => {
+            const time = prev.startTime ? prev.startTime.slice(11, 16) : '08:00';
+            return { ...prev, startTime: date ? `${date}T${time}` : '' };
+        });
+    };
+
+    const handleStartTimeChange = (e) => {
+        const time = e.target.value;
+        setFormData(prev => {
+            const date = prev.startTime ? prev.startTime.slice(0, 10) : '';
+            return { ...prev, startTime: date ? `${date}T${time}` : prev.startTime };
+        });
     };
 
     const calculateEndTime = () => {
@@ -96,11 +157,19 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Plasa de siguranta pentru cazul in care startTime ajunge in stare din alta sursa decat
+        // selectorul (ex. initialData de la o programare veche, dinainte de limitarea programului).
+        if (startTimePart && (startTimePart < '08:00' || startTimePart > '20:00')) {
+            toast.error('Ora selectata trebuie sa fie intre 08:00 si 20:00.');
+            return;
+        }
+
         try {
             let finalPatientId = formData.patientId;
 
             if (showNewPatientForm) {
-                const newPatient = await patientApi.create({ name: newPatientName });
+                const newPatient = await patientApi.create({ name: newPatientName, phone: newPatientPhone });
                 finalPatientId = newPatient.id;
             }
 
@@ -109,11 +178,15 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                 doctorId: formData.doctorId,
                 roomId: formData.roomId,
                 serviceId: formData.serviceId,
-                startTime: new Date(formData.startTime).toISOString(),
+                // Backendul primeste LocalDateTime (ora de perete, fara fus), iar calendarul
+                // citeste raspunsul cu new Date(...) tot ca ora locala. formData.startTime e deja
+                // "YYYY-MM-DDTHH:mm" local, deci il trimitem ca atare: un toISOString() l-ar
+                // converti in UTC si programarea ar aluneca cu 2-3 ore (offsetul Romaniei).
+                startTime: `${formData.startTime}:00`,
                 notes: formData.notes
             };
 
-            if (initialData) {
+            if (initialData?.id) {
                 await appointmentApi.update(initialData.id, payload);
                 toast.success("Programarea a fost actualizată cu succes.");
             } else {
@@ -147,38 +220,78 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
 
                 {!showNewPatientForm ? (
                     <div className="space-y-2">
-                        <input
-                            type="text"
-                            placeholder="Introduceți numele sau CNP-ul pentru filtrare..."
-                            value={patientSearch}
-                            onChange={(e) => setPatientSearch(e.target.value)}
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                        />
-                        <select
-                            required
-                            value={formData.patientId}
-                            onChange={handlePatientSelect}
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="" disabled>-- Vă rugăm să selectați pacientul --</option>
-                            {filteredPatients.map(p => (
-                                <option key={p.id} value={p.id}>{p.name} {p.cnp ? `(${p.cnp})` : ''}</option>
-                            ))}
-                            <option value="NEW" className="font-bold text-blue-600">+ Înregistrare pacient nou</option>
-                        </select>
+                        {/* Cautarea dispare odata ce pacientul e ales — la momentul ala nu mai
+                            filtreaza nimic si doar ocupa spatiu in modal. */}
+                        {!selectedPatient && (
+                            <input
+                                type="text"
+                                placeholder="Căutare după nume sau CNP..."
+                                value={patientSearch}
+                                onChange={(e) => setPatientSearch(e.target.value)}
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                            />
+                        )}
+
+                        <div className="flex gap-2">
+                            <select
+                                required
+                                value={formData.patientId}
+                                onChange={handlePatientSelect}
+                                className="flex-1 min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="" disabled>-- Selectați pacientul --</option>
+                                {filteredPatients.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} {p.cnp ? `(${p.cnp})` : ''}</option>
+                                ))}
+                            </select>
+
+                            {/* Buton dedicat: inainte, "pacient nou" era ultima optiune din lista
+                                derulanta, deci se ascundea sub toti pacientii existenti. */}
+                            <button
+                                type="button"
+                                onClick={startNewPatient}
+                                className="shrink-0 rounded-md border border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                            >
+                                + Pacient nou
+                            </button>
+                        </div>
+
+                        {selectedPatient && (
+                            <button
+                                type="button"
+                                onClick={clearPatientSelection}
+                                className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                            >
+                                Caută alt pacient
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div className="space-y-2">
+                        <p className="text-sm text-gray-600">Pacient nou — se înregistrează la salvarea programării.</p>
                         <input
                             type="text"
                             required
+                            autoFocus
                             placeholder="Numele complet al pacientului"
                             value={newPatientName}
                             onChange={(e) => setNewPatientName(e.target.value)}
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                         />
-                        <button type="button" onClick={() => setShowNewPatientForm(false)} className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                            Anulare înregistrare și revenire la căutare
+                        <input
+                            type="tel"
+                            required
+                            placeholder="Număr de telefon"
+                            value={newPatientPhone}
+                            onChange={(e) => setNewPatientPhone(e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            type="button"
+                            onClick={cancelNewPatient}
+                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                        >
+                            Renunță și caută un pacient existent
                         </button>
                     </div>
                 )}
@@ -198,8 +311,12 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                     >
                         <option value="" disabled>-- Selectați medicul curant --</option>
+                        {/* DoctorResponse expune `fullName` + `speciality` — nu firstName/lastName,
+                            care erau mereu undefined si faceau toate optiunile identice ("Dr.  "). */}
                         {doctors.map(d => (
-                            <option key={d.id} value={d.id}>Dr. {d.firstName} {d.lastName}</option>
+                            <option key={d.id} value={d.id}>
+                                {d.fullName}{d.speciality ? ` — ${d.speciality}` : ''}
+                            </option>
                         ))}
                     </select>
                 </div>
@@ -249,14 +366,33 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                     <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Dată și Oră Start <span className="text-red-500">*</span>
                     </label>
-                    <input
-                        type="datetime-local"
-                        name="startTime"
-                        value={formData.startTime}
-                        onChange={handleChange}
-                        required
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                        <input
+                            type="date"
+                            value={startDatePart}
+                            onChange={handleStartDateChange}
+                            required
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <select
+                            value={startTimePart}
+                            onChange={handleStartTimeChange}
+                            required
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="" disabled>-- Ora --</option>
+                            {/* O programare existenta poate avea o ora care nu cade pe grila de 15
+                                minute (sau e din afara programului). Fara optiunea ei proprie,
+                                select-ul s-ar afisa gol si am pierde ora reala la reprogramare. */}
+                            {startTimePart && !TIME_SLOT_OPTIONS.includes(startTimePart) && (
+                                <option value={startTimePart}>{startTimePart} (in afara grilei)</option>
+                            )}
+                            {TIME_SLOT_OPTIONS.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Program: 08:00 - 20:00</p>
                 </div>
 
                 {/* PREVIEW ORA SFARSIT */}

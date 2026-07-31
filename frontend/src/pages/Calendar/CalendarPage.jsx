@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
@@ -10,7 +10,9 @@ import endOfDay from "date-fns/endOfDay";
 import getDay from "date-fns/getDay";
 import ro from "date-fns/locale/ro";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import "./calendar-overrides.css";
 import { appointmentApi } from "../../api/appointments";
+import { useAuth } from "../../context/AuthContext";
 import Modal from "../../components/Modal";
 import Button from "../../components/Button";
 import AppointmentForm from "./AppointmentForm";
@@ -26,6 +28,14 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+// Doar time-of-day-ul din aceste date conteaza pentru react-big-calendar (min/max) — ziua e
+// arbitrara, dar TREBUIE sa fie apropiata de "acum", nu o data fixa din trecut (gen 1970/1972).
+// Altfel react-big-calendar compara ore aflate in DST-uri diferite (ianuarie 1972 = ora de iarna
+// UTC+2, iulie 2026 = ora de vara UTC+3) si intervalul afisat se decaleaza cu o ora fata de cel cerut.
+const calendarBoundsRef = new Date();
+const CALENDAR_MIN_TIME = new Date(calendarBoundsRef.getFullYear(), calendarBoundsRef.getMonth(), calendarBoundsRef.getDate(), 8, 0, 0);
+const CALENDAR_MAX_TIME = new Date(calendarBoundsRef.getFullYear(), calendarBoundsRef.getMonth(), calendarBoundsRef.getDate(), 20, 0, 0);
+
 const STATUS_COLORS = {
   SCHEDULED: "#3174ad",
   CONFIRMED: "#2e8b57",
@@ -35,62 +45,117 @@ const STATUS_COLORS = {
   CANCELLED: "#a0a0a0",
 };
 
+const STATUS_LABELS = {
+    SCHEDULED: "Programat",
+    CONFIRMED: "Confirmat",
+    IN_PROGRESS: "Consultație activă",
+    COMPLETED: "Finalizat",
+    NO_SHOW: "Neprezentat",
+    CANCELLED: "Anulat",
+};
+
+// Galbenul (IN_PROGRESS) si grina (CANCELLED) sunt prea deschise pentru text alb — pe ele
+// scriem cu inchis, altfel eticheta nu se poate citi pe blocul colorat.
+const DARK_TEXT_STATUSES = new Set(["IN_PROGRESS", "CANCELLED"]);
+
 function eventStyleGetter(event) {
-  const backgroundColor = STATUS_COLORS[event.status] || "#3174ad";
-  return { style: { backgroundColor } };
+    const backgroundColor = STATUS_COLORS[event.status] || "#3174ad";
+    return {
+        style: {
+            backgroundColor,
+            color: DARK_TEXT_STATUSES.has(event.status) ? "#1f2937" : "#ffffff",
+        },
+    };
+}
+
+// Titlul intr-o singura linie ("Pacient — Serviciu (Medic)") se reteza mereu. Il spargem
+// pe randuri, ca sa se vada cat incape, si pastram textul complet in tooltip-ul nativ.
+function EventContent({ event }) {
+    const appointment = event.raw;
+    return (
+        <div title={event.title} style={{ lineHeight: 1.25, fontSize: "11px" }}>
+            <div style={{ fontWeight: 600 }}>{appointment.patientName}</div>
+            <div>{appointment.serviceName}</div>
+            <div style={{ opacity: 0.85 }}>{appointment.doctorName}</div>
+        </div>
+    );
 }
 
 export default function CalendarPage() {
-  const navigate = useNavigate();
-  const [view, setView] = useState("week");
-  const [date, setDate] = useState(new Date());
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [switchingView, setSwitchingView] = useState(false);
-  const [error, setError] = useState(null);
-  const [pollFailCount, setPollFailCount] = useState(0);
-  const pollingRef = useRef(null);
-  const isFirstLoad = useRef(true);
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    const role = user?.role;
 
-  const [modalMode, setModalMode] = useState(null); // "create" | "edit" | "details" | null
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  // O singura stare pentru toate actiunile de tranzitie (confirm/check-in/no-show/cancel) de pe
-  // programarea selectata - null cand nu ruleaza nimic, altfel numele actiunii curente. Dezactivam
-  // TOATE butoanele cat timp una e in curs (nu doar butonul apasat), ca sa nu putem trimite doua
-  // tranzitii simultan pe aceeasi programare (ex. click Confirma, apoi click Anuleaza inainte sa
-  // revina primul raspuns).
-  const [processingAction, setProcessingAction] = useState(null);
+    const [view, setView] = useState("week");
+    const [date, setDate] = useState(new Date());
+    const [events, setEvents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [switchingView, setSwitchingView] = useState(false);
+    const [error, setError] = useState(null);
+    const [pollFailCount, setPollFailCount] = useState(0);
+    const pollingRef = useRef(null);
+    const isFirstLoad = useRef(true);
 
-  const fetchAppointments = useCallback(
-    async ({ isPoll = false } = {}) => {
-      const from =
-        view === "day" ? startOfDay(date) : startOfWeek(date, { locale: ro });
-      const to =
-        view === "day" ? endOfDay(date) : endOfWeek(date, { locale: ro });
+    const [modalMode, setModalMode] = useState(null); // "create" | "edit" | "details" | null
+    const [selectedSlot, setSelectedSlot] = useState(null);
+    const [selectedEvent, setSelectedEvent] = useState(null);
+    const [cancelling, setCancelling] = useState(false);
 
-      try {
-        const data = await appointmentApi.getCalendarAppointments({
-          from: from.toISOString(),
-          to: to.toISOString(),
-        });
+    // Detaliul complet (AppointmentResponse) al programarii deschise in modalul de detalii,
+    // necesar ca sa stim doctor.userId (nu vine in DTO-ul "slim" de calendar)
+    const [eventDetail, setEventDetail] = useState(null);
+    const [eventDetailLoading, setEventDetailLoading] = useState(false);
+    const [actionProcessing, setActionProcessing] = useState(false);
 
-        const mapped = data.map((appt) => ({
-          id: appt.id,
-          title: `${appt.patientName} — ${appt.serviceName} (${appt.doctorName})`,
-          start: new Date(appt.startTime),
-          end: new Date(appt.endTime),
-          status: appt.status,
-          raw: appt,
-        }));
+    // Memoizat: un obiect literal nou la fiecare randare ar reinitializa formularul de
+    // programare (vezi efectul de hidratare din AppointmentForm).
+    //
+    // Ora slotului merge ca ora de perete locala, nu prin toISOString(): backendul lucreaza cu
+    // LocalDateTime, iar formularul taie oricum stringul la 16 caractere. Cu UTC, un slot de 09:00
+    // vara ajungea prefillat ca 06:00 (offsetul Romaniei) si se salva tot asa.
+    const createInitialData = useMemo(
+        () => (selectedSlot ? { startTime: format(selectedSlot.start, "yyyy-MM-dd'T'HH:mm") } : null),
+        [selectedSlot]
+    );
 
-        setEvents(mapped);
-        setError(null);
-        setPollFailCount(0);
-      } catch (err) {
-        if (isPoll) {
-          // La polling, nu bombardam userul cu erori repetate - doar incrementam contorul
-          setPollFailCount((prev) => prev + 1);
+    const fetchAppointments = useCallback(async ({ isPoll = false } = {}) => {
+        const from = view === "day" ? startOfDay(date) : startOfWeek(date, { locale: ro });
+        const to = view === "day" ? endOfDay(date) : endOfWeek(date, { locale: ro });
+
+        try {
+            const data = await appointmentApi.getCalendarAppointments({
+                from: from.toISOString(),
+                to: to.toISOString(),
+            });
+
+            const mapped = data.map((appt) => ({
+                id: appt.id,
+                title: `${appt.patientName} — ${appt.serviceName} (${appt.doctorName})`,
+                start: new Date(appt.startTime),
+                end: new Date(appt.endTime),
+                status: appt.status,
+                raw: appt,
+            }));
+
+            setEvents(mapped);
+            setError(null);
+            setPollFailCount(0);
+        } catch (err) {
+            if (isPoll) {
+                setPollFailCount((prev) => prev + 1);
+            } else {
+                setError("Nu am putut incarca programarile. Reincercam...");
+            }
+        } finally {
+            setLoading(false);
+            setSwitchingView(false);
+            isFirstLoad.current = false;
+        }
+    }, [view, date]);
+
+    useEffect(() => {
+        if (isFirstLoad.current) {
+            setLoading(true);
         } else {
           setError("Nu am putut incarca programarile. Reincercam...");
         }
@@ -103,34 +168,58 @@ export default function CalendarPage() {
     [view, date],
   );
 
-  // Fetch initial + la schimbare vedere/data
-  useEffect(() => {
-    if (isFirstLoad.current) {
-      setLoading(true);
-    } else {
-      setSwitchingView(true);
-    }
-    fetchAppointments();
-  }, [fetchAppointments]);
+    // Fetch initial + la schimbare vedere/data
+    useEffect(() => {
+        if (isFirstLoad.current) {
+            setLoading(true);
+        } else {
+            setSwitchingView(true);
+        }
+        fetchAppointments();
+    }, [fetchAppointments]);
 
-  // Polling la fiecare 20s
-  useEffect(() => {
-    pollingRef.current = setInterval(() => {
-      fetchAppointments({ isPoll: true });
-    }, 20000);
+    // Nu facem polling cat timp un modal e deschis: reimprospatarea re-randeaza pagina sub
+    // formularul pe care userul tocmai il completeaza, fara ca el sa vada calendarul oricum.
+    useEffect(() => {
+        if (modalMode) return undefined;
+
+        pollingRef.current = setInterval(() => {
+            fetchAppointments({ isPoll: true });
+        }, 20000);
+
+        return () => clearInterval(pollingRef.current);
+    }, [fetchAppointments, modalMode]);
 
     return () => clearInterval(pollingRef.current);
   }, [fetchAppointments]);
 
-  function handleSelectSlot(slotInfo) {
+function handleSelectSlot(slotInfo) {
     setSelectedSlot(slotInfo);
     setModalMode("create");
-  }
+}
 
-  function handleSelectEvent(event) {
+async function handleSelectEvent(event) {
     setSelectedEvent(event);
     setModalMode("details");
-  }
+    setEventDetail(null);
+    setEventDetailLoading(true);
+
+    try {
+        const detail = await appointmentApi.getById(event.id);
+        setEventDetail(detail);
+    } catch (err) {
+        toast.error("Nu s-au putut incarca detaliile programarii.");
+    } finally {
+        setEventDetailLoading(false);
+    }
+}
+
+function closeModal() {
+    setModalMode(null);
+    setSelectedSlot(null);
+    setSelectedEvent(null);
+    setEventDetail(null);
+}
 
   function closeModal() {
     setModalMode(null);
@@ -200,247 +289,73 @@ export default function CalendarPage() {
     );
   }
 
-  function handleCheckIn() {
-    return runTransition(
-      "checkIn",
-      appointmentApi.checkIn,
-      "Pacientul a fost inregistrat ca sosit.",
-      "Check-in-ul nu mai e posibil - statusul programarii s-a schimbat intre timp.",
-    );
-  }
+function renderActionButtons() {
+        if (!selectedEvent || eventDetailLoading) return null;
 
-  function handleNoShow() {
-    return runTransition(
-      "noShow",
-      appointmentApi.noShow,
-      "Programarea a fost marcata ca neprezentare.",
-      "Actiunea nu mai e posibila - statusul programarii s-a schimbat intre timp.",
-    );
-  }
+        const status = selectedEvent.status;
+        const busy = processingAction !== null;
+        const buttons = [];
 
-  function handleCancelAppointment() {
-    return runTransition(
-      "cancel",
-      appointmentApi.cancel,
-      "Programarea a fost anulata.",
-      "Anularea nu mai e posibila - altcineva a schimbat deja statusul programarii.",
-    );
-  }
-
-  function handleEditFromDetails() {
-    const raw = selectedEvent.raw;
-    setSelectedSlot({
-      start: new Date(raw.startTime),
-      end: new Date(raw.endTime),
-      initialData: raw,
-    });
-    setModalMode("edit");
-  }
-
-  return (
-    <div style={{ padding: "20px", height: "80vh" }}>
-      <h1>Calendar Programari</h1>
-
-      {/* Eroare la incarcarea initiala/schimbare vedere - vizibila, cu retry implicit prin polling */}
-      {error && <p style={{ color: "#c0392b" }}>{error}</p>}
-
-      {/* Eroare discreta la polling esuat repetat - nu bombardam cu toast la fiecare interval */}
-      {pollFailCount > 0 && !error && (
-        <p style={{ color: "#8a6d3b", fontSize: "0.85rem" }}>
-          Ultima actualizare automata a esuat, reincercam...
-        </p>
-      )}
-
-      {/* Loading state: incarcare initiala */}
-      {loading && (
-        <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>
-          Se incarca calendarul...
-        </div>
-      )}
-
-      {/* Loading state: schimbare vedere/data, calendarul ramane vizibil dedesubt */}
-      {!loading && switchingView && (
-        <p style={{ color: "#666", fontSize: "0.9rem" }}>Se actualizeaza...</p>
-      )}
-
-      {!loading && (
-        <>
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            view={view}
-            date={date}
-            onView={setView}
-            onNavigate={setDate}
-            views={["day", "week"]}
-            style={{ height: "100%" }}
-            selectable
-            onSelectSlot={handleSelectSlot}
-            onSelectEvent={handleSelectEvent}
-            eventPropGetter={eventStyleGetter}
-          />
-
-          {/* Empty state: nicio programare in intervalul vizualizat */}
-          {events.length === 0 && !error && (
-            <p
-              style={{ textAlign: "center", color: "#999", marginTop: "12px" }}
-            >
-              Nicio programare in acest interval.
-            </p>
-          )}
-        </>
-      )}
-
-      {/* Modal creare programare */}
-      <Modal
-        isOpen={modalMode === "create"}
-        onClose={closeModal}
-        title="Programare noua"
-      >
-        <AppointmentForm
-          initialData={
-            selectedSlot
-              ? { startTime: selectedSlot.start.toISOString() }
-              : null
-          }
-          onSave={handleFormSaved}
-          onCancel={closeModal}
-        />
-      </Modal>
-
-      {/* Modal reprogramare (editare) */}
-      <Modal
-        isOpen={modalMode === "edit"}
-        onClose={closeModal}
-        title="Reprogramare"
-      >
-        <AppointmentForm
-          initialData={selectedSlot?.initialData}
-          onSave={handleFormSaved}
-          onCancel={closeModal}
-        />
-      </Modal>
-
-      {/* Modal detalii programare */}
-      <Modal
-        isOpen={modalMode === "details"}
-        onClose={closeModal}
-        title="Detalii programare"
-      >
-        {selectedEvent && (
-          <div>
-            <p>
-              <strong>{selectedEvent.title}</strong>
-            </p>
-            <p>Status: {selectedEvent.status}</p>
-            <p>
-              {format(selectedEvent.start, "dd.MM.yyyy HH:mm")} —{" "}
-              {format(selectedEvent.end, "HH:mm")}
-            </p>
-
-            {/*
-                            Panou de actiuni, conditionat de statusul curent (conform masinii de stari
-                            din backend_module4_tasks.md §1.1: SCHEDULED->CONFIRMED/CANCELLED,
-                            CONFIRMED->IN_PROGRESS/NO_SHOW/CANCELLED, restul sunt stari terminale).
-                            Filtrarea suplimentara pe ROL (ex. check-in doar pe propria programare
-                            pentru DOCTOR) e un item separat, nu il implementam aici - nu e o gaura de
-                            securitate, backend-ul respinge oricum cu 403 orice actiune neautorizata,
-                            indiferent ce arata UI-ul.
-                        */}
-            {(selectedEvent.status === "SCHEDULED" ||
-              selectedEvent.status === "CONFIRMED") && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  marginTop: "16px",
-                  flexWrap: "wrap",
-                }}
-              >
-                {selectedEvent.status === "SCHEDULED" && (
-                  <Button
-                    variant="primary"
-                    onClick={handleConfirmAppointment}
-                    disabled={processingAction !== null}
-                  >
-                    {processingAction === "confirm"
-                      ? "Se confirma..."
-                      : "Confirma"}
-                  </Button>
-                )}
-
-                {selectedEvent.status === "CONFIRMED" && (
-                  <>
-                    <Button
-                      variant="primary"
-                      onClick={handleCheckIn}
-                      disabled={processingAction !== null}
-                    >
-                      {processingAction === "checkIn"
-                        ? "Se proceseaza..."
-                        : "Pacient sosit"}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={handleNoShow}
-                      disabled={processingAction !== null}
-                    >
-                      {processingAction === "noShow"
-                        ? "Se proceseaza..."
-                        : "Neprezentat"}
-                    </Button>
-                  </>
-                )}
-
-                <Button
-                  variant="outline"
-                  onClick={handleEditFromDetails}
-                  disabled={processingAction !== null}
-                >
-                  Reprogrameaza
+        if (status === "SCHEDULED" && (role === "ADMIN" || role === "RECEPTION")) {
+            buttons.push(
+                <Button key="confirm" variant="outline" onClick={handleConfirm} disabled={busy}>
+                    {processingAction === "confirm" ? "Se confirma..." : "Confirma"}
+                </Button>,
+                <Button key="reprogram" variant="outline" onClick={handleEditFromDetails} disabled={busy}>
+                    Reprogrameaza
+                </Button>,
+                <Button key="cancel" variant="outline" onClick={handleCancelAppointment} disabled={busy}>
+                    {processingAction === "cancel" ? "Se anuleaza..." : "Anuleaza"}
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleCancelAppointment}
-                  disabled={processingAction !== null}
-                >
-                  {processingAction === "cancel"
-                    ? "Se anuleaza..."
-                    : "Anuleaza programarea"}
-                </Button>
-              </div>
-            )}
+            );
+        }
 
-            {selectedEvent.status === "IN_PROGRESS" && (
-              <div style={{ marginTop: "16px" }}>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    navigate(`/appointments/${selectedEvent.id}/record`)
-                  }
-                >
-                  Deschide fisa de consultatie
+        if (status === "CONFIRMED" && (role === "ADMIN" || role === "RECEPTION")) {
+            buttons.push(
+                <Button key="checkin" variant="outline" onClick={handleCheckIn} disabled={busy}>
+                    {processingAction === "checkIn" ? "Se proceseaza..." : "Pacient sosit"}
+                </Button>,
+                <Button key="noshow" variant="outline" onClick={handleNoShow} disabled={busy}>
+                    {processingAction === "noShow" ? "Se proceseaza..." : "Neprezentat"}
+                </Button>,
+                <Button key="reprogram" variant="outline" onClick={handleEditFromDetails} disabled={busy}>
+                    Reprogrameaza
+                </Button>,
+                <Button key="cancel" variant="outline" onClick={handleCancelAppointment} disabled={busy}>
+                    {processingAction === "cancel" ? "Se anuleaza..." : "Anuleaza"}
                 </Button>
-              </div>
-            )}
+            );
+        }
 
-            {selectedEvent.status === "COMPLETED" && (
-              <div style={{ marginTop: "16px" }}>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    navigate(`/appointments/${selectedEvent.id}/record`)
-                  }
-                >
-                  Vezi fisa
+        if (status === "CONFIRMED" && role === "DOCTOR" && isOwnAppointment) {
+            buttons.push(
+                <Button key="checkin" variant="outline" onClick={handleCheckIn} disabled={busy}>
+                    {processingAction === "checkIn" ? "Se proceseaza..." : "Pacient sosit"}
                 </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-    </div>
-  );
-}
+            );
+        }
+
+        if (status === "IN_PROGRESS" && (role === "ADMIN" || (role === "DOCTOR" && isOwnAppointment))) {
+            buttons.push(
+                <Button key="record" variant="outline" onClick={handleOpenRecord} disabled={busy}>
+                    Deschide fisa de consultatie
+                </Button>
+            );
+        }
+
+        if (status === "COMPLETED" && (role === "ADMIN" || role === "DOCTOR")) {
+            buttons.push(
+                <Button key="view-record" variant="outline" onClick={handleOpenRecord}>
+                    Vezi fisa
+                </Button>
+            );
+        }
+
+        if (buttons.length === 0) return null;
+
+        return (
+            <div style={{ display: "flex", gap: "8px", marginTop: "16px", flexWrap: "wrap" }}>
+                {buttons}
+            </div>
+        );
+    }
