@@ -12,6 +12,7 @@ import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
+import OccupancyReportPage from './pages/Reports/OccupancyReportPage';
 
 function App() {
     return (
@@ -86,6 +87,14 @@ function App() {
                         element={
                             <PrivateRoute roles={['ADMIN']}>
                                 <EquipmentPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/rapoarte/ocupare"
+                        element={
+                            <PrivateRoute roles={['ADMIN']}>
+                                <OccupancyReportPage />
                             </PrivateRoute>
                         }
                     />
