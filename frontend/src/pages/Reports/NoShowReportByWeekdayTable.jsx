@@ -79,8 +79,9 @@ export default function NoShowReportByWeekdayTable({
                   </span>
 
                   <RateBar
-                    rate={day.noShowRate}
-                    maxWidth={80}
+                      percentage={day.noShowRate * 100}
+                      size="sm"
+                      showPercentageLabel={false}
                   />
                 </div>
               </td>

@@ -1,5 +1,5 @@
 import React from 'react';
-import RateBar from '../../components/report/RateBar'; // TODO: verify that this does exist, if not, then cry about it
+import RateBar from '../../components/report/RateBar';
 
 const RED_THRESHOLD = 0.3;
 const MIN_APPOINTMENTS_FOR_RED = 3;
@@ -102,10 +102,11 @@ export default function NoShowReportByPatientTable({
                       {(patient.noShowRate * 100).toFixed(1)}%
                     </span>
 
-                    <RateBar
-                      rate={patient.noShowRate}
-                      maxWidth={80}
-                    />
+                   <RateBar
+                       percentage={p.noShowRate * 100}
+                       size="sm"
+                       showPercentageLabel={false}
+                   />
                   </div>
                 </td>
               </tr>
