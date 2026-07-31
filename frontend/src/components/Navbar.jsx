@@ -72,6 +72,13 @@ function Navbar() {
                     </Link>
 
                     <Link
+                        to="/rapoarte/ocupare"
+                        style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}
+                    >
+                        Raport Ocupare
+                    </Link>
+
+                    <Link
                         to="/audit-log"
                         style={{ marginRight: '20px', color: 'white', textDecoration: 'none' }}
                     >
