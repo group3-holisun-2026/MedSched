@@ -27,18 +27,21 @@ public class Notification {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type")
-    private NotificationType Type;
+    private NotificationType type = NotificationType.EMAIL;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "trigger")
+    @Column(name = "notification_trigger")
     private NotificationTrigger trigger;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private NotificationStatus status =  NotificationStatus.PENDING;
 
-    @Column(name = "recipient_phone", length = 20)
-    private String recipientPhone;
+    @Column(name = "recipient_email", length = 255)
+    private String recipientEmail;
+
+    @Column(name = "subject", length = 255)
+    private String subject;
 
     @Column(name = "body", columnDefinition = "TEXT")
     private String body;
@@ -58,7 +61,7 @@ public class Notification {
     @Column(name = "provider_message_id", length = 64)
     private String providerMessageId;
 
-    @Column(name = "confirmation_token")
+    @Column(name = "confirmation_token", unique = true, length = 32)
     private String confirmationToken;
 
     @Column(name = "created_at")

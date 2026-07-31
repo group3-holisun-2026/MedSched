@@ -1,5 +1,8 @@
 package com.holisun.backend.util;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class PhoneNumberNormalizer {
     public String normalizePhoneNumber(String number) {
         String cleanedNumber = number.replaceAll("[()-. ]", "");

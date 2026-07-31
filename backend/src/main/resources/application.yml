@@ -19,3 +19,23 @@ app:
     refresh-token-expiration-ms: 604800000 # 7 zile
   encryption:
     secret: "1234567890123456" # 16 caractere necesare pentru AES
+  email:
+    enabled: ${EMAIL_ENABLED:false}
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.example.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  notifications:
+    public-base-url: ${PUBLIC_BASE_URL:http://localhost:5173}
+    clinic-phone: "0264 000 000"
+  reports:
+    clinic-open-time: "08:00"
+    clinic-close-time: "20:00"
+    clinic-working-days: MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY
