@@ -8,7 +8,7 @@ import NoShowReportByPatientTable from './NoShowReportByPatientTable';
 import NoShowReportByWeekdayTable from './NoShowReportByWeekdayTable';
 
 export default function NoShowReportPage() {
-  const { toast } = useToast();
+  const { showSuccess, showError } = useToast(); // fixed the toastErr. Get it? Toast error... toaster.
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -30,27 +30,21 @@ export default function NoShowReportPage() {
         message: 'Raportul a fost generat.',
       });
     } catch (error) {
-      toast({
-        type: 'error',
-        message: 'Eroare la generarea raportului.',
-      });
+     showError(
+         error.response?.data?.message ??
+         'Eroare la generarea raportului.'
+     );
     } finally {
       setLoading(false);
     }
   };
 
   const handleExportCSV = () => {
-    toast({
-      type: 'info',
-      message: 'Export CSV în curs de implementare...',
-    });
+    showSuccess('Export CSV este în curs de implementare.');
   };
 
   const handleExportPDF = () => {
-    toast({
-      type: 'info',
-      message: 'Export PDF în curs de implementare...',
-    });
+   showSuccess('Export PDF este în curs de implementare.');
   };
 
   return (
