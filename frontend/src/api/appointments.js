@@ -1,5 +1,7 @@
 import apiClient from '../services/apiClient';
 
+const DOCTOR_IDS_FORMAT = 'repeated'; 
+
 export const appointmentApi = {
     create: async (payload) => {
         const response = await apiClient.post('/appointments', payload);
@@ -21,9 +23,17 @@ export const appointmentApi = {
         return response.data;
     },
 
-    getCalendarAppointments: async (params) => {
+    getCalendarAppointments: async ({ from, to, doctorIds, roomId } = {}) => {
+        const params = { from, to };
+
+        if (roomId) {
+        params.roomId = roomId;
+        } else if (doctorIds && doctorIds.length > 0) {
+        params.doctorIds = DOCTOR_IDS_FORMAT === 'csv' ? doctorIds.join(',') : doctorIds;
+        }
+
         const response = await apiClient.get('/appointments/calendar', { params });
-        return response.data;
+        return response.data; // CalendarAppointmentResponse[]
     },
 
     confirm: async (id) => {
@@ -46,3 +56,6 @@ export const appointmentApi = {
         return response.data;
     },
 };
+
+
+export default appointmentApi;

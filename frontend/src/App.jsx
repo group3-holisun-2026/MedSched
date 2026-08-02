@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PatientPage from './pages/Patient/PatientPage';
@@ -11,12 +12,14 @@ import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
-// Importul nou pentru rapoarte
+// Importurile pentru rapoarte
 import SalesReportPage from './pages/Reports/SalesReportPage';
+import OccupancyReportPage from './pages/Reports/OccupancyReportPage';
 
 function App() {
     return (
         <BrowserRouter>
+            <Toaster richColors position="top-right" closeButton />
             <AuthProvider>
                 <Navbar />
 
@@ -99,15 +102,15 @@ function App() {
                             </PrivateRoute>
                         }
                     />
-                    {/* Chiar dacă P2 și P3 nu există încă, le direcționăm temporar către aceeași componentă de bază */}
                     <Route
                         path="/rapoarte/ocupare"
                         element={
                             <PrivateRoute roles={['ADMIN']}>
-                                <SalesReportPage />
+                                <OccupancyReportPage />
                             </PrivateRoute>
                         }
                     />
+                    {/* P3 (no-show) inca nu e pe main - ruta ramane temporar pe placeholder */}
                     <Route
                         path="/rapoarte/no-show"
                         element={

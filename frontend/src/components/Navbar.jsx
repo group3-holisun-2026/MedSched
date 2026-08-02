@@ -107,7 +107,8 @@ function Navbar() {
                         Audit Log
                     </Link>
 
-                    {/* Linkul nou adăugat pentru Rapoarte */}
+                    {/* Un singur link pentru rapoarte; navigarea intre ele se face
+                        din banda de tab-uri (ReportTabs) din capul fiecarei pagini. */}
                     <Link to="/rapoarte/vanzari" style={linkStyle}>
                         Rapoarte
                     </Link>
