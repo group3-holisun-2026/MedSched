@@ -17,5 +17,13 @@ export const reportsApi = {
   getNoShowReport: async (from, to) => {
     const response = await apiClient.get('/reports/no-show', { params: { from, to } });
     return response.data;
-  }
+  },
+
+  // type: 'occupancy' | 'no-show' | 'sales'; format: 'pdf' | 'xlsx'.
+  // Raspunsul e binar, deci responseType 'blob' — vezi ExportButtons pentru descarcare.
+  exportReport: (type, format, from, to) =>
+    apiClient.get(`/reports/${type}/export`, {
+      params: { from, to, format },
+      responseType: 'blob',
+    })
 };

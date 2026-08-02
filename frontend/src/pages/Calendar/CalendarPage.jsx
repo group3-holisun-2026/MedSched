@@ -12,6 +12,7 @@ import ro from "date-fns/locale/ro";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "./calendar-overrides.css";
 import { appointmentApi } from "../../api/appointments";
+import { notificationsApi } from "../../api/notifications";
 import { useAuth } from "../../context/AuthContext";
 import Modal from "../../components/Modal";
 import Button from "../../components/Button";
@@ -52,6 +53,29 @@ const STATUS_LABELS = {
     COMPLETED: "Finalizat",
     NO_SHOW: "Neprezentat",
     CANCELLED: "Anulat",
+};
+
+// Sectiunea de notificari din modalul de detalii. Aceeasi paleta ca statusurile de programare,
+// ca utilizatorul sa nu invete doua coduri de culoare diferite.
+const NOTIFICATION_TRIGGER_LABELS = {
+    CONFIRMATION: "Confirmare",
+    REMINDER_24H: "Reamintire 24h",
+    RESCHEDULED: "Reprogramare",
+    CANCELLED: "Anulare",
+};
+
+const NOTIFICATION_STATUS_LABELS = {
+    PENDING: "În așteptare",
+    SENT: "Trimis",
+    FAILED: "Eșuat",
+    CANCELLED: "Anulat",
+};
+
+const NOTIFICATION_STATUS_COLORS = {
+    PENDING: "#3174ad",
+    SENT: "#2e8b57",
+    FAILED: "#c0392b",
+    CANCELLED: "#a0a0a0",
 };
 
 // Galbenul (IN_PROGRESS) si grina (CANCELLED) sunt prea deschise pentru text alb — pe ele
@@ -105,6 +129,9 @@ export default function CalendarPage() {
     // necesar ca sa stim doctor.userId (nu vine in DTO-ul "slim" de calendar)
     const [eventDetail, setEventDetail] = useState(null);
     const [eventDetailLoading, setEventDetailLoading] = useState(false);
+    // null = fetch-ul a esuat; [] = nu exista notificari pentru programarea asta
+    const [eventNotifications, setEventNotifications] = useState([]);
+    const [eventNotificationsLoading, setEventNotificationsLoading] = useState(false);
     const [actionProcessing, setActionProcessing] = useState(false);
 
     // Memoizat: un obiect literal nou la fiecare randare ar reinitializa formularul de
@@ -184,6 +211,20 @@ export default function CalendarPage() {
         setModalMode("details");
         setEventDetail(null);
         setEventDetailLoading(true);
+        setEventNotifications([]);
+
+        // Notificarile se aduc doar aici, la deschiderea modalului — nu la fiecare randare a
+        // calendarului. Endpoint-ul e ADMIN-only, deci pentru celelalte roluri nici nu il chemam
+        // (un 403 in consola la fiecare click ar fi doar zgomot).
+        if (role === "ADMIN") {
+            setEventNotificationsLoading(true);
+            notificationsApi
+                .list({ appointmentId: event.id, size: 10 })
+                .then((page) => setEventNotifications(page.content ?? []))
+                .catch(() => setEventNotifications(null))
+                .finally(() => setEventNotificationsLoading(false));
+        }
+
         try {
             const detail = await appointmentApi.getById(event.id);
             setEventDetail(detail);
@@ -199,6 +240,7 @@ export default function CalendarPage() {
         setSelectedSlot(null);
         setSelectedEvent(null);
         setEventDetail(null);
+        setEventNotifications([]);
     }
 
     function handleFormSaved() {
@@ -463,30 +505,71 @@ export default function CalendarPage() {
                         </p>
 
                         {eventDetailLoading && (
-                        <p style={{ color: "#666" }}>
-                            Se incarca actiunile disponibile...
-                        </p>
-                    )}
+                            <p style={{ color: "#666" }}>
+                                Se incarca actiunile disponibile...
+                            </p>
+                        )}
 
-                            <hr style={{ margin: "16px 0" }} />
+                        {/* Coada de notificari e ADMIN-only in backend, deci pentru RECEPTION
+                            si DOCTOR sectiunea nu se randeaza deloc (nu se randeaza goala). */}
+                        {role === "ADMIN" && (
+                            <>
+                                <hr style={{ margin: "16px 0" }} />
+                                <h3 style={{ marginBottom: "8px" }}>Notificari email</h3>
 
-                            <h3>Notificări SMS</h3>
+                                {eventNotificationsLoading && (
+                                    <p style={{ color: "#666" }}>Se incarca notificarile...</p>
+                                )}
 
-                        <div
-                                style={{
-                                    border: "1px solid #ddd",
-                                    borderRadius: "8px",
-                                    padding: "12px",
-                                    marginBottom: "16px",
-                                    backgroundColor: "#fafafa",
-    }}
->
-    <p><strong>Status:</strong> În așteptare</p>
-    <p><strong>Telefon:</strong> {eventDetail?.patient?.phone || "-"}</p>
-    <p><strong>Tip notificare:</strong> Confirmare programare</p>
-</div>
+                                {!eventNotificationsLoading && eventNotifications === null && (
+                                    <p style={{ color: "#c0392b" }}>
+                                        Notificarile nu au putut fi incarcate.
+                                    </p>
+                                )}
 
-{renderActionButtons()}
+                                {!eventNotificationsLoading && eventNotifications?.length === 0 && (
+                                    <p style={{ color: "#666" }}>
+                                        Nicio notificare pentru aceasta programare.
+                                    </p>
+                                )}
+
+                                {!eventNotificationsLoading && eventNotifications?.length > 0 && (
+                                    <ul
+                                        style={{
+                                            listStyle: "none",
+                                            padding: "12px",
+                                            margin: "0 0 16px",
+                                            border: "1px solid #ddd",
+                                            borderRadius: "8px",
+                                            backgroundColor: "#fafafa",
+                                        }}
+                                    >
+                                        {eventNotifications.map((n) => (
+                                            <li
+                                                key={n.id}
+                                                style={{
+                                                    display: "flex",
+                                                    justifyContent: "space-between",
+                                                    gap: "12px",
+                                                    padding: "4px 0",
+                                                    fontSize: "0.9rem",
+                                                }}
+                                            >
+                                                <span>{NOTIFICATION_TRIGGER_LABELS[n.trigger] || n.trigger}</span>
+                                                <span style={{ color: NOTIFICATION_STATUS_COLORS[n.status] || "#a0a0a0" }}>
+                                                    {NOTIFICATION_STATUS_LABELS[n.status] || n.status}
+                                                </span>
+                                                <span style={{ color: "#666" }}>
+                                                    {format(new Date(n.sentAt ?? n.nextAttemptAt ?? n.createdAt), "dd.MM HH:mm")}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </>
+                        )}
+
+                        {renderActionButtons()}
                     </div>
                 )}
             </Modal>

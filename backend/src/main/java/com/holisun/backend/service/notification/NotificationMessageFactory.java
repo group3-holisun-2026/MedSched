@@ -39,17 +39,19 @@ public class NotificationMessageFactory {
         String body = String.format(CONFIRMATION_BODY,
                 DATE_FMT.format(appointment.getStartTime()),
                 TIME_FMT.format(appointment.getStartTime()),
-                sanitize(appointment.getDoctor().getUser().getUsername()),
+                doctorName(appointment),
                 sanitize(appointment.getRoom().getName()));
         return new EmailContent(CONFIRMATION_SUBJECT, body);
     }
 
     public EmailContent createReminderMessage(Appointment appointment, String confirmationToken) {
-        String link = baseUrl + "/confirm?token=" + confirmationToken;
+        // Ruta reala din frontend e /c/:token (App.jsx), nu /confirm?token= — cu forma veche
+        // linkul din email ducea pe o pagina inexistenta.
+        String link = baseUrl + "/c/" + confirmationToken;
         String body = String.format(REMINDER_BODY,
                 SHORT_DATE_FMT.format(appointment.getStartTime()),
                 TIME_FMT.format(appointment.getStartTime()),
-                sanitize(appointment.getDoctor().getUser().getUsername()),
+                doctorName(appointment),
                 sanitize(appointment.getRoom().getName()),
                 link);
         return new EmailContent(REMINDER_SUBJECT, body);
@@ -59,7 +61,7 @@ public class NotificationMessageFactory {
         String body = String.format(RESCHEDULED_BODY,
                 DATE_FMT.format(appointment.getStartTime()),
                 TIME_FMT.format(appointment.getStartTime()),
-                sanitize(appointment.getDoctor().getUser().getUsername()),
+                doctorName(appointment),
                 sanitize(appointment.getRoom().getName()));
         return new EmailContent(RESCHEDULED_SUBJECT, body);
     }
@@ -69,6 +71,15 @@ public class NotificationMessageFactory {
                 DATE_FMT.format(appointment.getStartTime()),
                 TIME_FMT.format(appointment.getStartTime()));
         return new EmailContent(CANCELLED_SUBJECT, body);
+    }
+
+    /**
+     * Sablonul scrie "Dr. %s", dar username-ul medicului din seeder e deja "Dr. Andrei Popescu",
+     * deci concatenarea naiva producea "Dr. Dr. Andrei Popescu". Taiem prefixul daca exista deja.
+     */
+    private String doctorName(Appointment appointment) {
+        String name = sanitize(appointment.getDoctor().getUser().getUsername());
+        return name.regionMatches(true, 0, "Dr. ", 0, 4) ? name.substring(4) : name;
     }
 
     private String sanitize(String input) {

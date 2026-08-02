@@ -1,7 +1,11 @@
 import React from 'react';
 import RateBar from '../../components/report/RateBar';
+import { formatRate } from '../../utils/reportFormat';
 
+// PatientNoShowRow = { patientId, patientName, total, noShows, rate } (rate e fractie 0..1).
 const RED_THRESHOLD = 0.3;
+// Un pacient cu 1 programare si 1 neprezentare are rata 100%, dar nu e un "pacient problema".
+// Fara pragul asta raportul ar fi rosu peste tot si ar deveni inutil.
 const MIN_APPOINTMENTS_FOR_RED = 3;
 
 export default function NoShowReportByPatientTable({
@@ -51,8 +55,8 @@ export default function NoShowReportByPatientTable({
         <tbody>
           {filteredPatients.map((patient) => {
             const isProblematic =
-              patient.noShowRate > RED_THRESHOLD &&
-              patient.totalAppointments >= MIN_APPOINTMENTS_FOR_RED;
+              patient.rate > RED_THRESHOLD &&
+              patient.total >= MIN_APPOINTMENTS_FOR_RED;
 
             return (
               <tr
@@ -72,7 +76,7 @@ export default function NoShowReportByPatientTable({
                 </td>
 
                 <td style={{ padding: '12px' }}>
-                  {patient.totalAppointments}
+                  {patient.total}
                 </td>
 
                 <td
@@ -99,14 +103,14 @@ export default function NoShowReportByPatientTable({
                         fontWeight: isProblematic ? 600 : 400,
                       }}
                     >
-                      {(patient.noShowRate * 100).toFixed(1)}%
+                      {formatRate(patient.rate, patient.total > 0)}
                     </span>
 
-                   <RateBar
-                       percentage={p.noShowRate * 100}
-                       size="sm"
-                       showPercentageLabel={false}
-                   />
+                    <RateBar
+                        percentage={(patient.rate ?? 0) * 100}
+                        size="sm"
+                        showPercentageLabel={false}
+                    />
                   </div>
                 </td>
               </tr>

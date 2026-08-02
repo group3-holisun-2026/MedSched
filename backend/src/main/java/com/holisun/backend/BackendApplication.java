@@ -3,10 +3,9 @@ package com.holisun.backend;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
+// Job-urile periodice sunt activate din config/SchedulingConfig, ca sa poata fi oprite la teste.
 @SpringBootApplication
-@EnableScheduling
 public class BackendApplication {
 
     public static void main(String[] args) {

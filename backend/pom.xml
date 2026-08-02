@@ -87,9 +87,26 @@
             <version>0.12.6</version>
             <scope>runtime</scope>
         </dependency>
+        <!-- Flyway.
+             Atentie, cele trei artefacte sunt toate necesare si lipsa oricaruia e silentioasa:
+             - flyway-core         = librarie, fara integrare Spring;
+             - spring-boot-flyway  = autoconfiguratia. In Boot 4 autoconfiguratiile au fost sparte in
+                                     module per tehnologie, deci `flyway-core` singur NU mai porneste
+                                     migratiile — nu apare nici macar o linie de log, iar schema ramane
+                                     goala (exact ce se intampla in proiect pana acum: totul mergea doar
+                                     din `ddl-auto: update`, iar V1-V8 nu se aplicasera niciodata);
+             - flyway-database-postgresql = suportul de Postgres, scos din core incepand cu Flyway 10. -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -126,14 +143,9 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Module 5: SMS -->
-        <dependency>
-            <groupId>com.twilio.sdk</groupId>
-            <artifactId>twilio</artifactId>
-            <version>12.1.1</version>
-        </dependency>
-
-        <!-- Modulul 5: notificari prin email (implementarea actuala) -->
+        <!-- Modulul 5: notificari prin email.
+             Twilio/SMS a fost scos din scop - un cont SMS platit ar fi fost peste nevoile demo-ului,
+             iar F-502 e acoperit integral pe canalul email. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>

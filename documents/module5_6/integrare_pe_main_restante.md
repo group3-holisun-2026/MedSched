@@ -1,178 +1,88 @@
-# Modulele 5 + 6 — ce a intrat pe `main` și ce a mai rămas
+# Modulele 5 + 6 — stare finala dupa integrare
 
-> Stare la 02.08.2026. Toate cele 7 PR-uri deschise (#154-#160) sunt merge-uite pe `main`.
-> Backend-ul compilează, cele 83 de teste trec, frontend-ul se construiește (`vite build`).
+> Actualizat 02.08.2026, dupa merge-ul PR-urilor #154-#160 si runda de reparatii care a urmat.
+> Versiunea initiala a acestui document era o lista de restante; aproape toate sunt rezolvate acum,
+> asa ca a fost rescris ca stare finala. Ce a mai ramas e la §4.
 >
-> Documentul ăsta e lista de restanțe **de rezolvat împreună**, nu o listă de reproșuri. E ordonată
-> după cât de tare blochează demo-ul, nu după cine a scris codul.
+> **Canalul de notificare e emailul.** Twilio/SMS a iesit din scop (decizie de echipa: un cont SMS
+> platit ar fi fost peste nevoile demo-ului). F-501, F-502 si NFR-2 sunt acoperite integral pe email.
+> De semnalat la prezentare ca abatere constienta fata de caiet, impreuna cu omiterea
+> "instructiunilor speciale" din corpul mesajului (motiv de confidentialitate, F-502.1).
 
----
+## 1. Verificat pe aplicatia pornita, nu doar compilat
 
-## 1. Blocante pentru demo — trebuie rezolvate
+Backend: 94 de teste trec. Frontend: `vite build` curat. Aplicatia a fost pornita pe o baza goala,
+cu Flyway rulandu-si toate cele 9 migratii, si fiecare modul a fost exersat prin API si prin UI.
 
-### 1.1. Notificările sunt pe **email**, nu pe **SMS** (Lotul A, PR #160)
+| Cerinta | Cum a fost verificata | Rezultat |
+|---|---|---|
+| F-101/102/103 | `GET /api/doctors`, `/rooms`, `/equipment`, `/services` | 8 medici, 10 cabinete, 11 servicii |
+| F-201 | `GET /api/patients` | 10 pacienti |
+| F-202 + DoD #3 | `POST`/`GET /api/appointments/{id}/record`; acelasi GET ca RECEPTION | 201/200; receptia **403** |
+| F-301/302 | creare programare din UI si API | 201 |
+| DoD #4 | a doua rezervare pe acelasi medic/interval | **409** "Medicul are deja o programare" |
+| F-401 + DoD #2 | `confirm` → `check-in` → `complete`; plus doua tranzitii ilegale | legale 200, ilegale **409** |
+| F-402 | fisa devine read-only la `COMPLETED` | acoperit de suita existenta |
+| F-501/502 | creare → 2 randuri in outbox; dispatcher trimite confirmarea in <15s | CONFIRMATION `SENT`, REMINDER_24H `PENDING` la `startTime - 24h` |
+| F-502.2 | link din email → pagina publica → Confirm | 200 → 204, mesaj de confirmare pe ecran |
+| F-502.3 | reprogramare si anulare | reminder vechi `CANCELLED`, unul nou pentru ora noua, notificare `RESCHEDULED`/`CANCELLED` |
+| NFR-2 | `SmsTransientException` → ramane `PENDING` cu backoff; a doua rulare → `SENT` | test dedicat |
+| F-601.1/2/3 | cele trei rapoarte, din UI | cifre reale, formatare RON, bare de procent |
+| F-602 | 6 exporturi (3 rapoarte × pdf/xlsx) | 200, `%PDF` / `PK`, numere native in Excel, format `0.0%` |
+| NFR-1 | `DOCTOR` si `RECEPTION` pe `/api/reports/*` si `/api/notifications` | **403** peste tot; ADMIN 200 |
+| NFR-1 audit | citire fisa → intrare in `audit_log` atribuita userului real | 1 intrare, `READ ConsultationRecord` |
+| NFR-3 | 360px si 768px pe paginile noi | zero scroll orizontal |
 
-Decizia 1.1 din `backend_module5_6_tasks.md` era explicită: **doar SMS, prin Twilio**, fără
-`spring-boot-starter-mail`, fără template-uri de email. Ce a intrat e exact opusul:
-`EmailSender` / `JavaMailEmailSender` / `LoggingEmailSender` / `EmailContent`,
-`EmailPermanentException` / `EmailTransientException`, `Notification.recipientEmail` + `subject`,
-`app.email.enabled` în loc de `app.sms.enabled`.
+## 2. Trei probleme de fond, gasite la verificare
 
-Arhitectural, restul e **corect și conform**: outbox în aceeași tranzacție, dispatcher `@Scheduled`
-cu `fixedDelay = 15s`, backoff `{1, 5, 15, 60, 360}` minute, `try/catch` per rând, kill switch cu
-sender de log implicit, token `SecureRandom` 12 bytes Base64 URL-safe. Doar **canalul** diferă.
+**Flyway nu rulase niciodata, nicaieri.** Lipseau `spring-boot-flyway` (in Boot 4 autoconfiguratiile
+sunt module separate, `flyway-core` singur nu porneste nimic) si `flyway-database-postgresql`.
+Simptomul e tacut: nicio linie de log, iar schema exista oricum pentru ca o crea `ddl-auto: update`.
+Practic V1-V8 erau fisiere moarte. Acum profilul dev ruleaza pe `ddl-auto: validate` si Flyway
+detine schema.
 
-Trei variante, alegeți una în grup:
+> **O singura data, pentru fiecare:** daca ai deja o baza `medsched_dev` construita de Hibernate,
+> Flyway va esua cu "relation already exists". Reseteaz-o:
+> `DROP DATABASE medsched_dev; CREATE DATABASE medsched_dev;`
 
-- **(a) Se acceptă emailul ca abatere conștientă.** Cel mai ieftin. Se trece pe lista de "abateri de
-  la caiet" pentru prezentare, lângă cea deja asumată (fără instrucțiuni speciale în notificare).
-  Atunci trebuie curățat restul (vezi 1.2, 1.3) și scos Twilio din `pom.xml`.
-- **(b) Se comută pe SMS.** Interfața `EmailSender` devine `SmsSender`, `EmailContent` dispare
-  (SMS-ul n-are subiect), `recipientEmail` → `recipientPhone`, plus
-  `util/PhoneNumberNormalizer.java` (§1.5 — **nu există deloc acum**). Dependința Twilio e deja în
-  `pom.xml`. E o zi de lucru, nu mai mult.
-- **(c) Ambele canale**, cu `NotificationType` decizând senderul. Cel mai mult de muncă și nimeni
-  nu a cerut-o. Nu o recomand.
+**Auditul nu retinea cine.** `AuditLoggingAspect` citea userul din `getCredentials()`, dar
+`JwtAuthenticationFilter` il pune ca *principal*. Toate intrarile se scriau pe UUID-ul zero — adica
+exact intrebarea pe care NFR-1 o pune ("cine a deschis fisa pacientului X") ramanea fara raspuns.
 
-**Până nu se decide asta, 1.2 și 1.3 rămân blocate** — depind de ce câmp poartă destinatarul.
+**Suita de teste era nedeterminista.** `@EnableScheduling` statea pe `BackendApplication`, deci
+dispatcher-ul real pornea si in `@SpringBootTest` si se bata pe aceleasi mock-uri cu apelul manual
+din test — `dispatch_permanentException_failsImmediately` pica la o rulare din doua. In plus, trei
+clase de test rulau pe profilul `dev`, adica pe baza de dezvoltare a fiecaruia.
 
-### 1.2. Pagina publică nu funcționează: verb HTTP greșit + link greșit
+## 3. Ce s-a reparat, pe scurt
 
-Două nepotriviri independente, ambele opresc complet fluxul F-502.2:
+Securitate: `@PreAuthorize` pe coada de notificari (expunea corpul mesajelor si adresele pacientilor
+oricui era logat); `AuditLogService` era un stub care arunca 500; atributia userului in audit.
 
-| Unde | Frontend (PR #155) | Backend (PR #160) | Efect |
-|---|---|---|---|
-| Verb | `publicApiClient.patch(...)` | `@PostMapping` | **405 Method Not Allowed** la confirmare și la anulare |
-| Link | ruta e `/c/:token` | `NotificationMessageFactory` scrie `{baseUrl}/confirm?token=...` | linkul din notificare duce pe o rută inexistentă |
+Modulul 5: reprogramarea anula reminderul fara sa puna altul (pacientul ramanea fara reamintire);
+linkul din email ducea pe o ruta inexistenta; frontend-ul trimitea `PATCH` unde backend-ul asteapta
+`POST` (405); pagina pacientului ramanea alba pentru ca citea campuri care nu exista in DTO;
+sectiunea din calendar era text fix, acum citeste notificarile reale si doar pentru ADMIN.
 
-Fix-ul e mic de ambele părți: `patch` → `post` în `api/publicAppointment.js`, și
-`baseUrl + "/c/" + confirmationToken` în `NotificationMessageFactory`. **Nu le-am aplicat** pentru
-că a doua atinge textul mesajului, care depinde de decizia de la 1.1 — dacă se trece pe SMS,
-`NotificationMessageFactory` se rescrie oricum.
+Modulul 6: exportul PDF/Excel exista complet in backend dar nu-l chema nimeni — implementat in
+frontend cu toate cele trei capcane (eroare citita din `Blob`, nume de fisier construit local pentru
+ca `Content-Disposition` nu e expus prin CORS, `revokeObjectURL`); raportul de ocupare rula pe date
+inventate; nume de campuri aliniate la DTO-uri peste tot.
 
-### 1.3. `GET /api/notifications` — coloana `Destinatar` rămâne goală
+Cauza comuna a majoritatii: **`module5_6_endpoints.md` nu fusese publicat**. Exista acum si e sursa
+de adevar — daca schimbati un camp, schimbati-l intai acolo.
 
-`NotificationsPage.jsx` citește `n.recipientPhone`; `NotificationResponse` trimite `recipientEmail`
-(mascat ca `i***@test.com`). Se rezolvă odată cu 1.1 — dacă rămâne emailul, se redenumește în
-frontend; dacă se trece pe SMS, se redenumește în backend și masca devine `+4072***1111` ca în §A8.
+## 4. Ce a ramas neterminat (constient)
 
-### 1.4. `NotificationAdminController` nu are `@PreAuthorize` — **problemă de securitate**
-
-`@RequestMapping("/api/notifications")` e sub regula generală "orice utilizator autentificat", deci
-**un DOCTOR sau un RECEPTION poate lista coada de notificări a întregii clinici** (inclusiv `body`-ul
-mesajelor și telefoanele/emailurile pacienților) și poate apăsa retry. §A8 cere `ADMIN`-only.
-
-Fix: `@PreAuthorize("hasRole('ADMIN')")` la nivel de clasă, exact ca pe `ReportController`, plus un
-test în tiparul lui `ReportControllerSecurityTest`. **Ăsta merită făcut primul** — e o linie și e
-singurul lucru din listă care e o scurgere de date reală, nu doar o funcție lipsă.
-
-### 1.5. Migrația `V9__.sql` nu există
-
-Ultima migrație e tot `V8__.sql`. Tabela `notifications` apare doar pentru că profilul `dev` are
-`ddl-auto: update` — pe o bază curată cu Flyway (adică oriunde în afară de laptopurile voastre)
-aplicația pornește fără tabelă și tot Modulul 5 cade.
-
-Lipsesc, conform §4.2:
-- `CREATE TABLE notifications (...)` + FK spre `appointments` + `UNIQUE` pe `confirmation_token`
-- index pe `(status, next_attempt_at)` — query-ul rulat de dispatcher la fiecare 15 secunde
-- index pe `appointments (start_time)` — toate cele trei rapoarte filtrează pe el
-
-Atenție la capcana din §4.2: dacă aveți deja `medsched_dev` pornită cu `ddl-auto: update`, Hibernate
-a creat deja tabela pe lângă Flyway și `V9` va eșua cu "relation already exists".
-
----
-
-## 2. Funcționalități din caiet care nu au fost livrate
-
-### 2.1. Export PDF / Excel — backend complet, frontend deloc (F-602)
-
-`ReportPdfExporter` (389 linii) și `ReportExcelExporter` (325 linii) sunt scrise, testate și expuse
-pe `GET /api/reports/{type}/export?from&to&format=pdf|xlsx`. **Nimic din frontend nu le apelează.**
-
-`components/report/ExportButtons.jsx` e un schelet de 15 linii: două butoane care primesc
-`onExportCSV` / `onExportPDF`, iar ambele pagini care îl folosesc răspund cu un toast
-"în curs de implementare". Lipsesc toate cele trei capcane documentate în §P1.1: citirea erorii din
-`Blob`, construirea numelui de fișier în frontend (`Content-Disposition` nu e expus prin CORS) și
-`URL.revokeObjectURL`. Lipsește și starea `exporting` per format.
-
-De reținut: butonul se numește **Export Excel**, nu CSV — backend-ul produce `.xlsx`, iar cerința
-explicită din F-602 e interpretarea nativă a numerelor, ceea ce CSV n-ar da.
-
-### 2.2. Raportul de ocupare rulează pe date inventate (F-601.1)
-
-`OccupancyReportPage.jsx` are `MOCK_DOCTORS_OCCUPANCY` / `MOCK_ROOMS_OCCUPANCY` hardcodate și un
-`fetchOccupancyReport` care rezolvă un `setTimeout`. Comentariul din fișier spune "nu există endpoint
-`/rapoarte/ocupare`" — **există**, `GET /api/reports/occupancy`, și întoarce exact shape-ul din §B1.
-Trebuie doar înlocuit mock-ul cu `reportsApi.getOccupancyReport(from, to)` și mapate câmpurile
-(`bookedMinutes` / `availableMinutes` / `occupancyRate`, nu `occupiedMinutes` / `totalMinutes` /
-`percentage`).
-
-Pagina nu folosește nici `ReportTabs`, nici `ReportFilters`, nici `ExportButtons` — are filtre
-proprii. Merită aliniată la infrastructura P1, altfel cele trei rapoarte arată ca trei aplicații.
-
-### 2.3. Secțiunea "Notificări SMS" din calendar e un placeholder (P5.2)
-
-În modalul de detalii, blocul afișează text fix — `Status: În așteptare`,
-`Tip notificare: Confirmare programare` — și telefonul pacientului din `eventDetail`. Nu apelează
-`GET /api/notifications?appointmentId=...` (filtrul **există** în backend, e implementat).
-E vizibilă pentru toate rolurile, deși §P5.2 cere `ADMIN` only.
-
-### 2.4. `documents/module5_6/module5_6_endpoints.md` nu a fost publicat
-
-Cerut la §4.4 ca sursă de adevăr pentru contract. Absența lui explică direct 1.2, 1.3 și 2.2 — toate
-sunt nepotriviri de nume de câmp/verb pe care un tabel de endpoint-uri le-ar fi prins înainte de PR.
-**Merită scris acum, retroactiv**, din codul care e deja pe `main`.
-
-### 2.5. `PhoneNumberNormalizer` nu există
-
-§A2, obligatoriu. Relevant doar dacă se alege varianta SMS la 1.1.
-
-### 2.6. B7 (`priceAtBooking`) nu s-a făcut
-
-Era marcat opțional, deci e în regulă. Dar înseamnă că **limitarea trebuie scrisă în README și spusă
-la prezentare**: raportul de vânzări citește `service.price` de azi, deci dacă adminul schimbă un
-preț, cifrele lunilor trecute se schimbă retroactiv.
-
----
-
-## 3. Ce am rezolvat eu la integrare (ca să știți ce s-a schimbat față de PR-urile voastre)
-
-1. **`CalendarPage.jsx` din PR #159 era nefuncțional** — fișierul de pe branch avea un `} finally {`
-   fără `try`, un `closeModal` duplicat și **îi lipsea complet blocul de `return`** al componentei
-   (361 de linii, se termina după `renderActionButtons`). Branch-ul nu se construia. La merge am
-   păstrat versiunea din PR #158, care e versiunea funcțională de pe `main` plus secțiunea de
-   notificări. **Consecință: modificările lui Ossian pe calendar (filtrarea pe medici) nu sunt
-   active.** `components/Calendar/DoctorFilterMenu.jsx` și `doctorColors.js` sunt pe `main`, dar
-   nimeni nu le importă — trebuie reintegrate într-un PR nou, pornit din `main` curat.
-2. **`Navbar.jsx` — hook apelat condiționat.** `if (pathname.startsWith('/c/')) return null;` era
-   pus înaintea lui `useState`, deci pe ruta publică se apelau mai puține hook-uri decât pe restul
-   rutelor și React arunca "rendered fewer hooks than expected" la navigare. Am mutat ieșirea după
-   toate hook-urile.
-3. **`api/reports.js` trimitea `startDate` / `endDate`**, iar `ReportController` leagă `from` / `to`.
-   Toate cele trei rapoarte răspundeau **400**. Redenumit în frontend.
-4. **`SalesReportPage` destructura `const { toast } = useToast()`**, dar `ToastContext` expune
-   `showSuccess` / `showError`. `toast` era `undefined`, deci pagina crăpa cu "toast is not a
-   function" la prima cerere — și pe succes, și pe eroare. Trecut pe `showSuccess`/`showError`.
-5. **`application-dev.yml` avea `password: ${ACCOUNT_PASSWORD}` fără valoare implicită.** Oricine
-   nu avea variabila setată nu mai putea porni aplicația (placeholder nerezolvabil). Am pus
-   `${ACCOUNT_PASSWORD:}` și am trecut host/port/username tot pe env cu valorile voastre ca default.
-6. **Navbar avea două linkuri de rapoarte** (`Raport Ocupare` de la #159 și `Rapoarte` de la #154).
-   Am păstrat unul singur, conform §P1.1 — navigarea între rapoarte se face din `ReportTabs`.
-7. **`pom.xml` / `application.yml`** — reunite manual: Twilio + POI + OpenPDF (#157) și
-   `spring-boot-starter-mail` (#160) coexistă; blocul `app.reports` era adăugat de amândoi, l-am
-   păstrat o singură dată.
-
-> Twilio a rămas în `pom.xml` deși nimic nu-l folosește acum. L-am lăsat intenționat, ca varianta (b)
-> de la 1.1 să nu mai aibă nevoie de o modificare de build. Dacă se alege varianta (a), scoateți-l.
-
----
-
-## 4. Ordinea sugerată de atac
-
-1. `@PreAuthorize` pe `NotificationAdminController` (1.4) — o linie, e scurgere de date.
-2. Decizia email vs SMS (1.1) — deblochează 1.2, 1.3, 2.3, 2.5.
-3. `V9__.sql` (1.5) — fără ea nu există deploy curat.
-4. `module5_6_endpoints.md` (2.4) — înainte ca cineva să atingă frontend-ul.
-5. Export PDF/Excel în frontend (2.1) — e cea mai vizibilă lipsă la demo, backend-ul e gata.
-6. Ocupare pe date reale (2.2).
-7. Reintegrarea calendarului lui Ossian (3.1) și secțiunea de notificări din modal (2.3).
+1. **`priceAtBooking` (B7, era optional).** Raportul de vanzari citeste `service.price` de azi, deci
+   daca adminul schimba un pret, cifrele lunilor trecute se schimba retroactiv. Pentru un raport
+   financiar e o slabiciune reala. **Trebuie spusa la prezentare** daca nu se implementeaza.
+2. **Filtrarea pe medic din calendar (PR #159).** `CalendarPage.jsx` de pe branch-ul lui Ossian era
+   nefunctional — `} finally {` fara `try`, `closeModal` duplicat si blocul de `return` al
+   componentei lipsea complet; branch-ul nu se construia. La merge s-a pastrat versiunea functionala.
+   `components/Calendar/DoctorFilterMenu.jsx` si `doctorColors.js` sunt pe `main` dar nu le importa
+   nimeni. De reintegrat intr-un PR nou, pornit din `main` curat.
+3. **Multi-instanta.** Dispatcher-ul nu are lock distribuit: cu doua instante ale aplicatiei aceeasi
+   notificare poate pleca de doua ori. Limitare documentata, nu o rezolvam acum.
+4. **Diacritice in PDF.** Fontul implicit (Helvetica/Cp1252) nu reda `ș`/`ț`, deci textele din PDF si
+   din emailuri sunt fara diacritice. Ar necesita un TTF inglobat — task separat.

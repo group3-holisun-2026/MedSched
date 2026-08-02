@@ -65,8 +65,8 @@ public class AppointmentService {
 
         Appointment saved = appointmentRepository.save(newAppointment);
 
-        notificationOutboxService.enqueueConfirmation(newAppointment);
-        notificationOutboxService.enqueueReminder(newAppointment);
+        notificationOutboxService.enqueueConfirmation(saved);
+        notificationOutboxService.enqueueReminder(saved);
 
         return appointmentMapper.toResponse(saved);
     }

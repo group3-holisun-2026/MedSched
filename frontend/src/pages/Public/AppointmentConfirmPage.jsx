@@ -150,11 +150,20 @@ const AppointmentConfirmPage = () => {
                         <h2 style={{ fontSize: '20px', marginBottom: '16px', color: '#1f2937' }}>
                             Bună, {appointment.patientFirstName}!
                         </h2>
+                        {/* PublicAppointmentResponse trimite startTime/endTime/doctorName/roomName.
+                            Varianta initiala citea date/time/clinicName, care nu exista in DTO:
+                            format(new Date(undefined)) arunca RangeError si pagina ramanea alba. */}
                         <div style={{ fontSize: '16px', color: '#4b5563', marginBottom: '24px', lineHeight: '1.5' }}>
-                            <p>Aveți o programare la <strong>{appointment.clinicName}</strong></p>
-                            <p>Data: <strong>{format(new Date(appointment.date), 'dd.MM.yyyy')}</strong></p>
-                            <p>Ora: <strong>{appointment.time}</strong></p>
+                            <p>Data: <strong>{format(new Date(appointment.startTime), 'dd.MM.yyyy')}</strong></p>
+                            <p>
+                                Ora:{' '}
+                                <strong>
+                                    {format(new Date(appointment.startTime), 'HH:mm')}
+                                    {appointment.endTime && ` - ${format(new Date(appointment.endTime), 'HH:mm')}`}
+                                </strong>
+                            </p>
                             <p>Medic: <strong>{appointment.doctorName}</strong></p>
+                            <p>Cabinet: <strong>{appointment.roomName}</strong></p>
                         </div>
 
                         {!showCancelConfirm ? (
