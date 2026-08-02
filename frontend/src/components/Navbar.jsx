@@ -112,6 +112,10 @@ function Navbar() {
                     <Link to="/rapoarte/vanzari" style={linkStyle}>
                         Rapoarte
                     </Link>
+
+                    <Link to="/admin/notificari" style={linkStyle}>
+                        Notificări
+                    </Link>
                 </>
             )}
 

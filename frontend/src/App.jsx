@@ -9,6 +9,7 @@ import ConsultationRecordPage from './pages/Consultation/ConsultationRecordPage'
 import RoomsPage from './pages/Rooms/RoomsPage'; // Doar Cabinete
 import DoctorPage from './pages/Doctor/DoctorPage';
 import EquipmentPage from './pages/Equipment/EquipmentPage';
+import NotificationsPage from './pages/Notifications/NotificationsPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
@@ -119,6 +120,17 @@ function App() {
                             </PrivateRoute>
                         }
                     />
+
+                    {/* Administrarea cozii de notificari (P5) */}
+                    <Route
+                        path="/admin/notificari"
+                        element={
+                            <PrivateRoute roles={['ADMIN']}>
+                                <NotificationsPage />
+                            </PrivateRoute>
+                        }
+                    />
+
                 </Routes>
             </AuthProvider>
         </BrowserRouter>
