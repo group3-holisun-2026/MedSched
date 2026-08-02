@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface WorkScheduleRepository extends JpaRepository<WorkSchedule, UUID> {
     List<WorkSchedule> findByDoctorId(UUID doctorId);
+    List<WorkSchedule> findByDoctorIdIn(List<UUID> doctorIds);
 }
