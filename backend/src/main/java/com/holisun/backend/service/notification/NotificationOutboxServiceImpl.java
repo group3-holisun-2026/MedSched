@@ -60,6 +60,10 @@ public class NotificationOutboxServiceImpl implements NotificationOutboxService 
         EmailContent content = notificationMessageFactory.createRescheduledMessage(appointment);
         Notification notification = buildBaseNotification(appointment, NotificationTrigger.RESCHEDULED, content, LocalDateTime.now());
         notificationRepository.save(notification);
+
+        // Reminder-ul vechi tocmai a fost anulat mai sus; fara randul asta pacientul ar ramane
+        // complet fara reamintire dupa o mutare. Token nou, ora noua (F-502.2).
+        enqueueReminder(appointment);
     }
 
     @Override

@@ -167,7 +167,8 @@ export default function NotificationsPage() {
                                             {format(new Date(n.createdAt), 'dd.MM.yyyy HH:mm')}
                                         </td>
                                         <td style={tdStyle}>{TRIGGER_LABELS[n.trigger] || n.trigger}</td>
-                                        <td style={tdStyle}>{n.recipientPhone}</td>
+                                        {/* Vine deja mascat de la backend (i***@exemplu.ro) — nu-l "reparam" aici. */}
+                                        <td style={tdStyle}>{n.recipientEmail ?? '—'}</td>
                                         <td style={tdStyle}>
                                             <StatusBadge status={n.status} />
                                         </td>

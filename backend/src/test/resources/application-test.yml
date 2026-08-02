@@ -8,3 +8,9 @@ spring:
       ddl-auto: create-drop # Curăță baza de date după fiecare test
   flyway:
     enabled: false # Închidem Flyway la teste dacă folosim create-drop din Hibernate
+
+app:
+  # Fără asta, dispatcher-ul real pornește în fundal la fiecare @SpringBootTest și se bate pe
+  # aceleași mock-uri cu apelul manual din test. Testele își cheamă singure job-ul, când vor.
+  scheduling:
+    enabled: false

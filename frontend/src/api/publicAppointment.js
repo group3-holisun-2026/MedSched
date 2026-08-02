@@ -10,8 +10,10 @@ const publicApiClient = axios.create({
     baseURL: 'http://localhost:8080/public'
 });
 
+// PublicAppointmentController mapeaza confirm/cancel pe POST, nu pe PATCH — cu PATCH ambele
+// actiuni se intorceau cu 405 Method Not Allowed.
 export const publicAppointmentApi = {
     getDetails: (token) => publicApiClient.get(`/appointments/${token}`).then(res => res.data),
-    confirm: (token) => publicApiClient.patch(`/appointments/${token}/confirm`).then(res => res.data),
-    cancel: (token) => publicApiClient.patch(`/appointments/${token}/cancel`).then(res => res.data)
+    confirm: (token) => publicApiClient.post(`/appointments/${token}/confirm`).then(res => res.data),
+    cancel: (token) => publicApiClient.post(`/appointments/${token}/cancel`).then(res => res.data)
 };

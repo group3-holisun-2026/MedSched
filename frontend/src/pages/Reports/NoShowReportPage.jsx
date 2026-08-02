@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useToast } from '../../context/ToastContext';
 import { reportsApi } from '../../api/reports';
+import { formatRate } from '../../utils/reportFormat';
 import ReportTabs from '../../components/report/ReportTabs';
 import ReportFilters from '../../components/report/ReportFilters';
 import ExportButtons from '../../components/report/ExportButtons';
@@ -8,55 +9,46 @@ import NoShowReportByPatientTable from './NoShowReportByPatientTable';
 import NoShowReportByWeekdayTable from './NoShowReportByWeekdayTable';
 
 export default function NoShowReportPage() {
-  const { showSuccess, showError } = useToast(); // fixed the toastErr. Get it? Toast error... toaster.
+  const { showSuccess, showError } = useToast();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showOnlyFrequent, setShowOnlyFrequent] = useState(false);
+  // Intervalul efectiv aplicat — exportul scoate exact ce e pe ecran.
+  const [appliedRange, setAppliedRange] = useState({ from: '', to: '' });
 
-  const fetchReport = async (startDate, endDate) => {
+  const fetchReport = async (from, to) => {
     try {
       setLoading(true);
 
-      const result = await reportsApi.getNoShowReport(
-        startDate,
-        endDate
-      );
+      const result = await reportsApi.getNoShowReport(from, to);
 
       setData(result);
-
-      toast({
-        type: 'success',
-        message: 'Raportul a fost generat.',
-      });
+      setAppliedRange({ from, to });
+      showSuccess('Raportul a fost generat.');
     } catch (error) {
-     showError(
-         error.response?.data?.message ??
-         'Eroare la generarea raportului.'
-     );
+      showError(
+        error.response?.data?.message ??
+        'Eroare la generarea raportului.'
+      );
+      setData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExportCSV = () => {
-    showSuccess('Export CSV este în curs de implementare.');
-  };
-
-  const handleExportPDF = () => {
-   showSuccess('Export PDF este în curs de implementare.');
-  };
-
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
         <h1 className="text-2xl font-bold text-gray-800">
           Raport Neprezentări
         </h1>
 
         <ExportButtons
-          onExportCSV={handleExportCSV}
-          onExportPDF={handleExportPDF}
+          type="no-show"
+          from={appliedRange.from}
+          to={appliedRange.to}
+          onError={showError}
         />
       </div>
 
@@ -64,12 +56,13 @@ export default function NoShowReportPage() {
 
       <ReportFilters
         onApplyFilters={fetchReport}
+        onInvalid={showError}
         isLoading={loading}
       />
 
       {loading ? (
         <div className="text-center p-8 text-gray-500">
-          Se încarcă datele...
+          Se generează raportul...
         </div>
       ) : data ? (
         <div className="space-y-6">
@@ -82,7 +75,7 @@ export default function NoShowReportPage() {
               </h2>
 
               <p className="text-3xl font-bold text-gray-800 mt-2">
-                {data.totalAppointments}
+                {data.total}
               </p>
             </div>
 
@@ -92,7 +85,7 @@ export default function NoShowReportPage() {
               </h2>
 
               <p className="text-3xl font-bold text-red-600 mt-2">
-                {data.totalNoShows}
+                {data.noShows}
               </p>
             </div>
 
@@ -102,7 +95,7 @@ export default function NoShowReportPage() {
               </h2>
 
               <p className="text-4xl font-bold text-red-600 mt-2">
-                {(data.overallRate * 100).toFixed(1)}%
+                {formatRate(data.rate, data.total > 0)}
               </p>
             </div>
 

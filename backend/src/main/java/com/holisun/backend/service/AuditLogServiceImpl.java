@@ -1,22 +1,75 @@
 package com.holisun.backend.service;
 
 import com.holisun.backend.dto.AuditLogResponse;
+import com.holisun.backend.entity.AuditLog;
+import com.holisun.backend.enums.AuditAction;
+import com.holisun.backend.repository.AuditLogRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * TODO(P3): inlocuieste cu implementarea reala (AuditLogRepository.findByUserAndDateRange),
- * vezi documents/module2/backend_module2_tasks.md sectiunea 3. Placeholder doar ca sa
- * porneasca aplicatia cat timp infrastructura de audit nu e implementata.
+ * NFR-1 — citirea jurnalului de audit. Doar citire: {@link AuditLogRepository} e append-only
+ * (expune doar {@code save} si interogarea), deci istoricul nu poate fi modificat prin API.
+ *
+ * Scrierea intrarilor se face din {@code AuditLoggingAspect}; aici doar le expunem.
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class AuditLogServiceImpl implements AuditLogService {
 
+    private final AuditLogRepository auditLogRepository;
+
     @Override
+    @Transactional(readOnly = true)
     public List<AuditLogResponse> findByUserAndDateRange(UUID userId, LocalDateTime from, LocalDateTime to) {
-        throw new UnsupportedOperationException("AuditLogService.findByUserAndDateRange - nu e inca implementat de P3");
+        if (userId == null || from == null || to == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Parametrii user, from si to sunt obligatorii.");
+        }
+        if (from.isAfter(to)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Data de inceput trebuie sa fie inaintea celei de sfarsit.");
+        }
+
+        return auditLogRepository.findByUserIdAndTimestampBetween(userId, from, to).stream()
+                // Cel mai recent primul: cine se uita in audit cauta aproape mereu ce s-a
+                // intamplat ultima data, nu ce s-a intamplat prima data.
+                .sorted(Comparator.comparing(AuditLog::getTimestamp).reversed())
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private AuditLogResponse toResponse(AuditLog entry) {
+        return new AuditLogResponse(
+                entry.getId(),
+                entry.getUserId(),
+                parseAction(entry.getAction()),
+                entry.getEntityName(),
+                entry.getEntityId(),
+                entry.getTimestamp()
+        );
+    }
+
+    /**
+     * Actiunea e stocata ca text. O valoare necunoscuta (intrare veche, rename de enum) nu are voie
+     * sa arunce si sa faca tot jurnalul necitibil — o raportam si o tratam ca READ.
+     */
+    private AuditAction parseAction(String action) {
+        try {
+            return AuditAction.valueOf(action);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            log.warn("Actiune de audit necunoscuta in baza: {}", action);
+            return AuditAction.READ;
+        }
     }
 }

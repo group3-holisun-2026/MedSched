@@ -1,47 +1,25 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Card from '../../components/Card';
 import RateBar from '../../components/report/RateBar';
+import ReportTabs from '../../components/report/ReportTabs';
+import ReportFilters from '../../components/report/ReportFilters';
+import ExportButtons from '../../components/report/ExportButtons';
+import { reportsApi } from '../../api/reports';
+import { useToast } from '../../context/ToastContext';
+import { formatMinutes, formatRate } from '../../utils/reportFormat';
 
-// --- MOCK DATA -------------------------------------------------------------
-// Raportul nu depinde încă de backend (nu există endpoint /rapoarte/ocupare).
-// Structura de mai jos e gândită să corespundă cu ce ar putea întoarce
-// un viitor endpoint, ca înlocuirea cu fetch-ul real să fie directă:
-//   const data = await reportApi.getOccupancy({ from, to });
-// Minutele sunt calculate pe perioada de raportare (implicit: săptămâna curentă).
-const MOCK_DOCTORS_OCCUPANCY = [
-  { id: 'd1', name: 'Dr. Ana Popescu', speciality: 'Cardiologie', occupiedMinutes: 1320, totalMinutes: 2400 },
-  { id: 'd2', name: 'Dr. Mihai Ionescu', speciality: 'Pediatrie', occupiedMinutes: 2040, totalMinutes: 2400 },
-  { id: 'd3', name: 'Dr. Elena Dumitrescu', speciality: 'Dermatologie', occupiedMinutes: 720, totalMinutes: 2400 },
-  { id: 'd4', name: 'Dr. Radu Constantin', speciality: 'Ortopedie', occupiedMinutes: 1080, totalMinutes: 1800 },
-  { id: 'd5', name: 'Dr. Ioana Marinescu', speciality: 'Neurologie', occupiedMinutes: 300, totalMinutes: 1800 },
-];
+// ResourceOccupancyRow = { resourceId, name, bookedMinutes, availableMinutes, occupancyRate }
+// occupancyRate e fractie 0..1; RateBar primeste procente, deci se inmulteste cu 100.
 
-const MOCK_ROOMS_OCCUPANCY = [
-  { id: 'r1', name: 'Cabinet 1 - Cardiologie', occupiedMinutes: 1560, totalMinutes: 2400 },
-  { id: 'r2', name: 'Cabinet 2 - Pediatrie', occupiedMinutes: 2160, totalMinutes: 2400 },
-  { id: 'r3', name: 'Cabinet 3 - Dermatologie', occupiedMinutes: 600, totalMinutes: 2400 },
-  { id: 'r4', name: 'Sală Tratamente', occupiedMinutes: 900, totalMinutes: 1800 },
-  { id: 'r5', name: 'Cabinet 4 - Ortopedie', occupiedMinutes: 1440, totalMinutes: 1800 },
-];
+// Medie ponderata, nu media procentelor: un medic cu 8 ore de program si unul cu 1 ora
+// nu cantaresc la fel in gradul de ocupare al clinicii.
+const weightedRate = (rows) => {
+  const booked = rows.reduce((sum, row) => sum + (row.bookedMinutes ?? 0), 0);
+  const available = rows.reduce((sum, row) => sum + (row.availableMinutes ?? 0), 0);
+  return available > 0 ? booked / available : 0;
+};
 
-// Simulează un apel asincron către backend, ca înlocuirea ulterioară
-// cu apiClient să nu ceară modificări în restul componentei.
-const fetchOccupancyReport = () =>
-  new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ doctors: MOCK_DOCTORS_OCCUPANCY, rooms: MOCK_ROOMS_OCCUPANCY });
-    }, 300);
-  });
-
-const withPercentage = (item) => ({
-  ...item,
-  percentage: item.totalMinutes > 0 ? (item.occupiedMinutes / item.totalMinutes) * 100 : 0,
-});
-
-const average = (items) =>
-  items.length === 0 ? 0 : items.reduce((sum, item) => sum + item.percentage, 0) / items.length;
-
-const OccupancyTable = ({ title, subtitle, rows, nameHeader }) => {
+const OccupancyTable = ({ title, nameHeader, rows }) => {
   if (!rows || rows.length === 0) {
     return (
       <div className="text-center py-10 bg-white rounded-xl border border-gray-100 shadow-sm mt-4">
@@ -54,42 +32,51 @@ const OccupancyTable = ({ title, subtitle, rows, nameHeader }) => {
     <Card className="mt-4">
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
       </div>
 
+      {/* NFR-3: 4 coloane sparg layout-ul la 768px fara wrapper-ul de scroll. */}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc', textAlign: 'left' }}>
-              <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{nameHeader}</th>
-              <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Minute ocupate</th>
-              <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Minute disponibile</th>
-              <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0', width: '30%' }}>Grad de ocupare</th>
+              <th style={thStyle}>{nameHeader}</th>
+              <th style={thStyle}>Minute ocupate</th>
+              <th style={thStyle}>Minute disponibile</th>
+              <th style={{ ...thStyle, width: '30%' }}>Grad de ocupare</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: '12px', fontWeight: 500, color: '#0f172a' }}>
-                  {row.name}
-                  {row.speciality && (
-                    <span className="block text-xs text-gray-400 font-normal">{row.speciality}</span>
-                  )}
-                </td>
-                <td style={{ padding: '12px', color: '#334155' }}>{row.occupiedMinutes} min</td>
-                <td style={{ padding: '12px', color: '#334155' }}>
-                  {Math.max(row.totalMinutes - row.occupiedMinutes, 0)} min
-                </td>
-                <td style={{ padding: '12px' }}>
-                  <RateBar
-                    percentage={row.percentage}
-                    occupiedMinutes={row.occupiedMinutes}
-                    totalMinutes={row.totalMinutes}
-                    showPercentageLabel
-                  />
-                </td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              // Medic fara orar definit in interval: numitor 0. Nu ascundem randul —
+              // exact asta vrea adminul sa vada (resursa neconfigurata).
+              const hasSchedule = (row.availableMinutes ?? 0) > 0;
+
+              return (
+                <tr key={row.resourceId ?? row.name} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ ...tdStyle, fontWeight: 500, color: '#0f172a' }}>{row.name}</td>
+                  <td style={tdStyle}>{formatMinutes(row.bookedMinutes)}</td>
+                  <td style={tdStyle}>
+                    {hasSchedule ? (
+                      formatMinutes(row.availableMinutes)
+                    ) : (
+                      <span title="Resursa nu are program definit în acest interval.">—</span>
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    {hasSchedule ? (
+                      <RateBar percentage={(row.occupancyRate ?? 0) * 100} showPercentageLabel />
+                    ) : (
+                      <span
+                        className="text-gray-400"
+                        title="Resursa nu are program definit în acest interval."
+                      >
+                        {formatRate(row.occupancyRate, false)}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -97,63 +84,85 @@ const OccupancyTable = ({ title, subtitle, rows, nameHeader }) => {
   );
 };
 
-const OccupancyReportPage = () => {
-  const [doctors, setDoctors] = useState([]);
-  const [rooms, setRooms] = useState([]);
+export default function OccupancyReportPage() {
+  const { showSuccess, showError } = useToast();
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [appliedRange, setAppliedRange] = useState({ from: '', to: '' });
 
-  useEffect(() => {
-    const loadReport = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        const data = await fetchOccupancyReport();
-        setDoctors(data.doctors.map(withPercentage));
-        setRooms(data.rooms.map(withPercentage));
-      } catch (err) {
-        console.error(err);
-        setError('Nu am putut încărca raportul de ocupare.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadReport();
-  }, []);
+  const fetchReport = async (from, to) => {
+    try {
+      setLoading(true);
+      const result = await reportsApi.getOccupancyReport(from, to);
+      setData(result);
+      setAppliedRange({ from, to });
+      showSuccess('Raportul a fost generat.');
+    } catch (error) {
+      showError(error.response?.data?.message ?? 'Eroare la generarea raportului.');
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const doctorsAvgOccupancy = useMemo(() => average(doctors), [doctors]);
-  const roomsAvgOccupancy = useMemo(() => average(rooms), [rooms]);
+  // Backend-ul trimite deja randurile sortate; sortam local doar descrescator dupa ocupare,
+  // ca resursele subutilizate sa iasa in evidenta la coada tabelului.
+  const doctors = useMemo(
+    () => [...(data?.doctors ?? [])].sort((a, b) => (b.occupancyRate ?? 0) - (a.occupancyRate ?? 0)),
+    [data]
+  );
+  const rooms = useMemo(
+    () => [...(data?.rooms ?? [])].sort((a, b) => (b.occupancyRate ?? 0) - (a.occupancyRate ?? 0)),
+    [data]
+  );
 
   return (
-    <div className="p-8 min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Raport Ocupare Resurse</h1>
-        <p className="text-sm text-gray-500 mt-1">Grad de ocupare pentru medici și cabinete — săptămâna curentă</p>
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+        <h1 className="text-2xl font-bold text-gray-800">Raport Ocupare Resurse</h1>
+        <ExportButtons
+          type="occupancy"
+          from={appliedRange.from}
+          to={appliedRange.to}
+          onError={showError}
+        />
       </div>
 
-      {error && <p className="text-red-500 mb-4">{error}</p>}
+      <ReportTabs />
+
+      <ReportFilters onApplyFilters={fetchReport} onInvalid={showError} isLoading={loading} />
 
       {loading ? (
-        <p className="text-gray-500">Se încarcă raportul...</p>
-      ) : (
+        <div className="text-center p-8 text-gray-500">Se generează raportul...</div>
+      ) : data ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <p className="text-sm text-gray-500">Grad mediu de ocupare — Medici</p>
-              <RateBar percentage={doctorsAvgOccupancy} className="mt-2" />
+              <RateBar percentage={weightedRate(doctors) * 100} className="mt-2" />
             </Card>
             <Card>
               <p className="text-sm text-gray-500">Grad mediu de ocupare — Cabinete</p>
-              <RateBar percentage={roomsAvgOccupancy} className="mt-2" />
+              <RateBar percentage={weightedRate(rooms) * 100} className="mt-2" />
             </Card>
           </div>
 
           <OccupancyTable title="Medici" nameHeader="Medic" rows={doctors} />
           <OccupancyTable title="Cabinete" nameHeader="Cabinet" rows={rooms} />
+
+          <p className="text-sm text-gray-500 mt-4">
+            Programările anulate și neprezentările nu ocupă resursa. Un „—” la gradul de ocupare
+            înseamnă că resursa nu are program definit în intervalul selectat.
+          </p>
         </>
+      ) : (
+        <div className="text-center p-8 text-gray-400 bg-white rounded-lg border border-gray-200">
+          Alegeți o perioadă și apăsați <strong>Generează</strong> pentru raportul de ocupare.
+        </div>
       )}
     </div>
   );
-};
+}
 
-export default OccupancyReportPage;
+const thStyle = { padding: '12px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' };
+const tdStyle = { padding: '12px', color: '#334155' };

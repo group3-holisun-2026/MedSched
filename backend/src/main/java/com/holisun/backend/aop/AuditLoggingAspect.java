@@ -17,6 +17,9 @@ import java.util.UUID;
 @Component
 public class AuditLoggingAspect {
 
+    /** Folosit doar cand chiar nu exista utilizator autentificat (nu ar trebui sa apara pe /api/**). */
+    private static final UUID UNKNOWN_USER = UUID.fromString("00000000-0000-0000-0000-000000000000");
+
     private final AuditLogRepository auditLogRepository;
     private final JwtUtil jwtUtil;
 
@@ -39,15 +42,23 @@ public class AuditLoggingAspect {
         }
 
 
-        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        // JwtAuthenticationFilter pune userId-ul (UUID) ca PRINCIPAL si lasa credentials null.
+        // Varianta veche citea getCredentials() ca String, deci nu se potrivea niciodata si toate
+        // intrarile ajungeau pe UUID-ul zero — adica exact intrebarea la care trebuie sa raspunda
+        // auditul ("cine a deschis fisa pacientului X", NFR-1) ramanea fara raspuns.
+        UUID userId = UNKNOWN_USER;
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        if (auth != null && auth.getCredentials() instanceof String) {
-            String token = (String) auth.getCredentials();
-            try {
-                userId = jwtUtil.extractUserId(token);
-            } catch (Exception e) {
-
+        if (auth != null) {
+            if (auth.getPrincipal() instanceof UUID principalId) {
+                userId = principalId;
+            } else if (auth.getCredentials() instanceof String token) {
+                // Plasa de siguranta daca cineva schimba filtrul sa puna token-ul in credentials.
+                try {
+                    userId = jwtUtil.extractUserId(token);
+                } catch (Exception ignored) {
+                    // ramane UNKNOWN_USER
+                }
             }
         }
 

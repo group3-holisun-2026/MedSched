@@ -15,7 +15,18 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update # Creează/actualizează tabelele automat în dev
+      # Schema e detinuta de Flyway (V1..V9), nu de Hibernate.
+      #
+      # A fost `update` pana acum, dar asta a mascat faptul ca Flyway nu rula deloc: lipsea
+      # `spring-boot-flyway` (autoconfiguratia) din pom, deci migratiile nu se aplicasera niciodata
+      # nicaieri, iar tabelele existau doar pentru ca le crea Hibernate. `validate` face ca o
+      # diferenta intre entitati si migratii sa iasa la pornire, nu la deploy.
+      #
+      # ATENTIE, o singura data: daca ai deja o baza `medsched_dev` construita de Hibernate, Flyway
+      # va esua cu "relation already exists". Reseteaz-o o data:
+      #   DROP DATABASE medsched_dev; CREATE DATABASE medsched_dev;
+      # Dupa asta migratiile ruleaza singure la fiecare pornire.
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:

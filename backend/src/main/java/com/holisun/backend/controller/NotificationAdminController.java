@@ -9,15 +9,24 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Coada de notificari, ecran administrativ.
+ *
+ * Regula de acces e la nivel de clasa, ca pe {@link ReportController}: raspunsul contine corpul
+ * mesajelor si adresele pacientilor, deci nu are ce cauta la RECEPTION sau la DOCTOR (NFR-1).
+ */
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class NotificationAdminController {
 
     private final NotificationRepository notificationRepository;
@@ -46,6 +55,7 @@ public class NotificationAdminController {
     }
 
     @PostMapping("/{id}/retry")
+    @Transactional
     public void retryNotification(@PathVariable UUID id) {
         Notification notification = notificationRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notificarea nu a fost gasita"));

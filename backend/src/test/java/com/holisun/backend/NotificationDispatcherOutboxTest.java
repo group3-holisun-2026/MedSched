@@ -10,6 +10,7 @@ import com.holisun.backend.service.notification.NotificationDispatcher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+// Profilul `test` tine testul pe medsched_test, nu pe baza de dezvoltare a fiecaruia.
+@ActiveProfiles("test")
 @SpringBootTest(properties = "app.email.enabled=true")
 public class NotificationDispatcherOutboxTest {
 

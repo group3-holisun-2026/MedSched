@@ -1,6 +1,8 @@
 import React from 'react';
 import RateBar from '../../components/report/RateBar';
+import { formatRate } from '../../utils/reportFormat';
 
+// WeekdayNoShowRow = { dayOfWeek, total, noShows, rate } (rate e fractie 0..1).
 const DAY_TRANSLATIONS = {
   MONDAY: 'Luni',
   TUESDAY: 'Marți',
@@ -59,7 +61,7 @@ export default function NoShowReportByWeekdayTable({
               </td>
 
               <td style={{ padding: '12px' }}>
-                {day.totalAppointments}
+                {day.total}
               </td>
 
               <td style={{ padding: '12px' }}>
@@ -75,11 +77,11 @@ export default function NoShowReportByWeekdayTable({
                   }}
                 >
                   <span>
-                    {(day.noShowRate * 100).toFixed(1)}%
+                    {formatRate(day.rate, day.total > 0)}
                   </span>
 
                   <RateBar
-                      percentage={day.noShowRate * 100}
+                      percentage={(day.rate ?? 0) * 100}
                       size="sm"
                       showPercentageLabel={false}
                   />
