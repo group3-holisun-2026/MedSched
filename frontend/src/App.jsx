@@ -11,6 +11,8 @@ import EquipmentPage from './pages/Equipment/EquipmentPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
+// Importul nou pentru rapoarte
+import SalesReportPage from './pages/Reports/SalesReportPage';
 
 function App() {
     return (
@@ -84,6 +86,33 @@ function App() {
                         element={
                             <PrivateRoute roles={['ADMIN']}>
                                 <EquipmentPage />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* Rute Noi: Infrastructura de Rapoarte (P1, P2, P3) */}
+                    <Route
+                        path="/rapoarte/vanzari"
+                        element={
+                            <PrivateRoute roles={['ADMIN']}>
+                                <SalesReportPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    {/* Chiar dacă P2 și P3 nu există încă, le direcționăm temporar către aceeași componentă de bază */}
+                    <Route
+                        path="/rapoarte/ocupare"
+                        element={
+                            <PrivateRoute roles={['ADMIN']}>
+                                <SalesReportPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/rapoarte/no-show"
+                        element={
+                            <PrivateRoute roles={['ADMIN']}>
+                                <SalesReportPage />
                             </PrivateRoute>
                         }
                     />
