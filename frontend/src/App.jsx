@@ -15,6 +15,7 @@ import Navbar from './components/Navbar';
 // Importurile pentru rapoarte
 import SalesReportPage from './pages/Reports/SalesReportPage';
 import OccupancyReportPage from './pages/Reports/OccupancyReportPage';
+import NoShowReportPage from './pages/Reports/NoShowReportPage';
 
 function App() {
     return (
@@ -110,12 +111,11 @@ function App() {
                             </PrivateRoute>
                         }
                     />
-                    {/* P3 (no-show) inca nu e pe main - ruta ramane temporar pe placeholder */}
                     <Route
                         path="/rapoarte/no-show"
                         element={
                             <PrivateRoute roles={['ADMIN']}>
-                                <SalesReportPage />
+                                <NoShowReportPage />
                             </PrivateRoute>
                         }
                     />
