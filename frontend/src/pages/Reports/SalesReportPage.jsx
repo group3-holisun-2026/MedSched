@@ -7,7 +7,9 @@ import ReportFilters from '../../components/report/ReportFilters';
 import ExportButtons from '../../components/report/ExportButtons';
 
 export default function SalesReportPage() {
-  const { toast } = useToast();
+  // ToastContext expune showSuccess/showError, nu un `toast` generic — destructurarea
+  // veche intorcea undefined si pagina crapa cu "toast is not a function" la prima cerere.
+  const { showSuccess, showError } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -16,20 +18,20 @@ export default function SalesReportPage() {
       setLoading(true);
       const result = await reportsApi.getSalesReport(startDate, endDate);
       setData(result);
-      toast({ type: 'success', message: 'Raportul a fost generat.' });
+      showSuccess('Raportul a fost generat.');
     } catch (error) {
-      toast({ type: 'error', message: 'Eroare la generarea raportului.' });
+      showError(error.response?.data?.message ?? 'Eroare la generarea raportului.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleExportCSV = () => {
-    toast({ type: 'info', message: 'Export CSV în curs de implementare...' });
+    showSuccess('Export Excel în curs de implementare.');
   };
 
   const handleExportPDF = () => {
-    toast({ type: 'info', message: 'Export PDF în curs de implementare...' });
+    showSuccess('Export PDF în curs de implementare.');
   };
 
   return (
