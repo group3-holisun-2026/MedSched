@@ -3,6 +3,7 @@ package com.holisun.backend.dto;
 import com.holisun.backend.dto.summary.*;
 import com.holisun.backend.enums.AppointmentStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -17,6 +18,9 @@ public record AppointmentResponse(
         LocalDateTime endTime,
         AppointmentStatus status,
         String notes,
+        /** B7 — pretul inghetat la rezervare, in RON. Rapoartele de vanzari insumeaza aceasta
+         *  valoare, nu `service.price`, deci poate diferi de tariful curent al serviciului. */
+        BigDecimal priceAtBooking,
         long version,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,

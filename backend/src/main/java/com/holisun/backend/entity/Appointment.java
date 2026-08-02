@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -49,6 +50,15 @@ public class Appointment {
 
     @Column(name = "notes", columnDefinition = "Text")
     private String notes;
+
+    /**
+     * B7 — pretul serviciului inghetat la momentul programarii. Raportul de vanzari insumeaza
+     * aceasta coloana, nu {@code service.price}, ca sa nu se rescrie retroactiv cifrele lunilor
+     * trecute cand adminul schimba un pret. Se re-fotografiaza doar daca reprogramarea schimba
+     * serviciul (vezi AppointmentService.update).
+     */
+    @Column(name = "price_at_booking", nullable = false, precision = 10, scale = 2)
+    private BigDecimal priceAtBooking;
 
     @Version
     @Column(name = "version", nullable = false)

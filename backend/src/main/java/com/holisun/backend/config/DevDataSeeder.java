@@ -459,6 +459,7 @@ public class DevDataSeeder implements CommandLineRunner {
         appointment.setEndTime(end);
         appointment.setNotes("Programare generata automat pentru testare (" + SEED_MARKER + ").");
         appointment.setStatus(statusFor(start, end, now));
+        appointment.setPriceAtBooking(service.getPrice());
 
         if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
             // Unele finalizate ies din fereastra de gratie de 30 min, altele nu — ca sa se poata

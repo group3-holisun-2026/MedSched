@@ -24,7 +24,7 @@ public interface ReportRepository extends Repository<Appointment, UUID> {
             s.id,
             s.name,
             COUNT(a),
-            SUM(s.price)
+            SUM(a.priceAtBooking)
         )
         FROM Appointment a
         JOIN a.service s
@@ -32,7 +32,7 @@ public interface ReportRepository extends Repository<Appointment, UUID> {
           AND a.startTime >= :from
           AND a.startTime < :to
         GROUP BY s.id, s.name
-        ORDER BY SUM(s.price) DESC
+        ORDER BY SUM(a.priceAtBooking) DESC
         """)
     List<SalesRow> sumSalesByService(
             @Param("from") LocalDateTime from,
@@ -44,17 +44,16 @@ public interface ReportRepository extends Repository<Appointment, UUID> {
             d.id,
             u.username,
             COUNT(a),
-            SUM(s.price)
+            SUM(a.priceAtBooking)
         )
         FROM Appointment a
-        JOIN a.service s
         JOIN a.doctor d
         JOIN d.user u
         WHERE a.status = com.holisun.backend.enums.AppointmentStatus.COMPLETED
           AND a.startTime >= :from
           AND a.startTime < :to
         GROUP BY d.id, u.username
-        ORDER BY SUM(s.price) DESC
+        ORDER BY SUM(a.priceAtBooking) DESC
         """)
     List<SalesRow> sumSalesByDoctor(
             @Param("from") LocalDateTime from,

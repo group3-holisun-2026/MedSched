@@ -1,8 +1,9 @@
 # Modulele 5 + 6 — stare finala dupa integrare
 
-> Actualizat 02.08.2026, dupa merge-ul PR-urilor #154-#160 si runda de reparatii care a urmat.
-> Versiunea initiala a acestui document era o lista de restante; aproape toate sunt rezolvate acum,
-> asa ca a fost rescris ca stare finala. Ce a mai ramas e la §4.
+> Actualizat 02.08.2026, dupa merge-ul PR-urilor #154-#160, runda de reparatii care a urmat si
+> inchiderea celor doua restante deschise (B7 si filtrul de calendar) — vezi §4.
+> Versiunea initiala a acestui document era o lista de restante; toate cele functionale sunt
+> rezolvate acum, asa ca a fost rescris ca stare finala. Ce a ramas neterminat, constient, e la §5.
 >
 > **Canalul de notificare e emailul.** Twilio/SMS a iesit din scop (decizie de echipa: un cont SMS
 > platit ar fi fost peste nevoile demo-ului). F-501, F-502 si NFR-2 sunt acoperite integral pe email.
@@ -11,8 +12,9 @@
 
 ## 1. Verificat pe aplicatia pornita, nu doar compilat
 
-Backend: 94 de teste trec. Frontend: `vite build` curat. Aplicatia a fost pornita pe o baza goala,
-cu Flyway rulandu-si toate cele 9 migratii, si fiecare modul a fost exersat prin API si prin UI.
+Backend: 97 de teste trec (94 + cele 3 din `AppointmentPriceAtBookingTest`). Frontend: `vite build`
+curat. Aplicatia a fost pornita pe o baza goala, cu Flyway rulandu-si toate cele 10 migratii, si
+fiecare modul a fost exersat prin API si prin UI.
 
 | Cerinta | Cum a fost verificata | Rezultat |
 |---|---|---|
@@ -72,17 +74,52 @@ inventate; nume de campuri aliniate la DTO-uri peste tot.
 Cauza comuna a majoritatii: **`module5_6_endpoints.md` nu fusese publicat**. Exista acum si e sursa
 de adevar — daca schimbati un camp, schimbati-l intai acolo.
 
-## 4. Ce a ramas neterminat (constient)
+## 4. Cele doua restante deschise, acum inchise
 
-1. **`priceAtBooking` (B7, era optional).** Raportul de vanzari citeste `service.price` de azi, deci
-   daca adminul schimba un pret, cifrele lunilor trecute se schimba retroactiv. Pentru un raport
-   financiar e o slabiciune reala. **Trebuie spusa la prezentare** daca nu se implementeaza.
-2. **Filtrarea pe medic din calendar (PR #159).** `CalendarPage.jsx` de pe branch-ul lui Ossian era
-   nefunctional — `} finally {` fara `try`, `closeModal` duplicat si blocul de `return` al
-   componentei lipsea complet; branch-ul nu se construia. La merge s-a pastrat versiunea functionala.
-   `components/Calendar/DoctorFilterMenu.jsx` si `doctorColors.js` sunt pe `main` dar nu le importa
-   nimeni. De reintegrat intr-un PR nou, pornit din `main` curat.
-3. **Multi-instanta.** Dispatcher-ul nu are lock distribuit: cu doua instante ale aplicatiei aceeasi
+**`priceAtBooking` (B7).** Implementat. `appointments` are coloana `price_at_booking` (migratia
+`V10__.sql`: se adauga nullable, se completeaza istoricul din pretul curent al serviciului — singura
+valoare pe care o mai aveam — si abia apoi devine `NOT NULL`). `AppointmentService.create()` o
+fotografiaza din serviciu, iar cele doua interogari de vanzari din `ReportRepository` insumeaza
+`a.priceAtBooking` in loc de `SUM(s.price)`. La reprogramare pretul **se pastreaza** daca serviciul
+ramane acelasi (pacientul a acceptat tariful de atunci) si se refotografiaza doar daca se schimba
+serviciul. Trei teste noi in `AppointmentPriceAtBookingTest` fixeaza exact aceste trei reguli.
+Nu mai e nimic de semnalat la prezentare pe tema asta.
+
+**Filtrarea pe medic din calendar (PR #159).** Reintegrata din `main` curat, fara `CalendarPage.jsx`
+de pe branch-ul original (cel cu `} finally {` fara `try` si fara blocul de `return`). Ce s-a
+schimbat efectiv in `pages/Calendar/CalendarPage.jsx`:
+
+- `DoctorFilterMenu` e randat langa titlu si e singura sursa a filtrului; pana raporteaza prima data,
+  pagina nu cere programari, ca sa nu plece doua cereri la fiecare montare.
+- `doctorIds`/`roomId` merg mai departe la `appointmentApi.getCalendarAppointments`.
+- **Capcana**: backendul trateaza lista goala de `doctorIds` ca "toti medicii activi", deci
+  "deselecteaza tot" nu trimite cererea deloc — altfel utilizatorul primea exact opusul a ce a cerut.
+  Calendarul ramane gol, cu mesaj explicit.
+- Culorile din `doctorColors.js` sunt o dunga in stanga blocului, nu fundalul: fundalul ramane
+  statusul, ca sa nu se piarda informatia pe care se iau deciziile. Aceleasi culori ca punctele din
+  filtru; nota de legenda apare doar la ADMIN/RECEPTION.
+- `DoctorResponse` a primit campul `active` — `GET /api/doctors` intoarce si medicii dezactivati,
+  deci filtrul "doar medici activi" era pana acum un no-op cu un avertisment in consola.
+
+## 5. Ce a ramas neterminat (constient)
+
+1. **Multi-instanta.** Dispatcher-ul nu are lock distribuit: cu doua instante ale aplicatiei aceeasi
    notificare poate pleca de doua ori. Limitare documentata, nu o rezolvam acum.
-4. **Diacritice in PDF.** Fontul implicit (Helvetica/Cp1252) nu reda `ș`/`ț`, deci textele din PDF si
+2. **Diacritice in PDF.** Fontul implicit (Helvetica/Cp1252) nu reda `ș`/`ț`, deci textele din PDF si
    din emailuri sunt fara diacritice. Ar necesita un TTF inglobat — task separat.
+
+## 6. Doua capcane gasite pe drum
+
+**`DevDataSeederIntegrationTest` rula pe baza de dezvoltare, nu pe cea de test.** Testul e
+`@ActiveProfiles({"test", "dev"})` — profilul `dev` e ultimul, deci `application-dev.yml` suprascria
+si `spring.datasource.url`, si `ddl-auto`. Testul deschidea `medsched_dev`, ii **stergea si recrea
+programarile**, si o valida cu `validate` desi acolo schema e detinuta de Flyway, care in profilul de
+test e oprit. Efectul: prima coloana noua pe orice entitate pica in acest test, cu un mesaj care nu
+are nimic de-a face cu seeder-ul. Acum conexiunea si `ddl-auto` sunt fixate explicit pe test.
+
+**Baza de dev trebuie resetata o singura data, si acum chiar trebuie.** Verificarea s-a facut pe o
+baza noua (`medsched_verify`), construita de Flyway de la zero: toate cele 10 migratii, inclusiv
+`V10__.sql`, se aplica curat, iar `ddl-auto: validate` trece. Pe `medsched_dev` de pe masina de
+dezvoltare Flyway inca pica la V2 cu "relation work_schedules already exists" — e baza construita
+candva de Hibernate, exact cazul din nota de la §2. `DROP DATABASE medsched_dev; CREATE DATABASE
+medsched_dev;` si aplicatia porneste singura mai departe.

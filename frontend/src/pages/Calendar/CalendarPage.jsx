@@ -16,6 +16,8 @@ import { notificationsApi } from "../../api/notifications";
 import { useAuth } from "../../context/AuthContext";
 import Modal from "../../components/Modal";
 import Button from "../../components/Button";
+import DoctorFilterMenu from "../../components/Calendar/DoctorFilterMenu";
+import { getDoctorColor } from "../../components/Calendar/doctorColors";
 import AppointmentForm from "./AppointmentForm";
 import { toast } from "sonner";
 
@@ -82,12 +84,16 @@ const NOTIFICATION_STATUS_COLORS = {
 // scriem cu inchis, altfel eticheta nu se poate citi pe blocul colorat.
 const DARK_TEXT_STATUSES = new Set(["IN_PROGRESS", "CANCELLED"]);
 
+// Fundalul ramane statusul (legenda de sus, aceeasi de la Modulul 3), iar medicul e o dunga
+// de culoare in stanga blocului. Asa se pot citi amandoua deodata; daca am fi colorat fundalul
+// pe medic, statusul — informatia pe care se iau deciziile — ar fi disparut.
 function eventStyleGetter(event) {
     const backgroundColor = STATUS_COLORS[event.status] || "#3174ad";
     return {
         style: {
             backgroundColor,
             color: DARK_TEXT_STATUSES.has(event.status) ? "#1f2937" : "#ffffff",
+            borderLeft: `5px solid ${getDoctorColor(event.raw?.doctorId).dot}`,
         },
     };
 }
@@ -120,6 +126,13 @@ export default function CalendarPage() {
     const pollingRef = useRef(null);
     const isFirstLoad = useRef(true);
 
+    // Filtrul de medici / cabinet (PR #159). `null` = DoctorFilterMenu inca nu a raportat nimic;
+    // pana atunci nu tragem programari, ca sa nu facem doua cereri la fiecare montare a paginii.
+    // Aceleasi roluri ca ALLOWED_ROLES din DoctorFilterMenu: pentru DOCTOR meniul nu se randeaza
+    // (backendul ii forteaza oricum propriul calendar), deci nu avem ce astepta.
+    const [filters, setFilters] = useState(null);
+    const canFilter = role === "ADMIN" || role === "RECEPTION";
+
     const [modalMode, setModalMode] = useState(null); // "create" | "edit" | "details" | null
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [selectedEvent, setSelectedEvent] = useState(null);
@@ -145,15 +158,28 @@ export default function CalendarPage() {
         [selectedSlot]
     );
 
+    // "Deselecteaza tot" trebuie sa insemne calendar gol. Backendul trateaza o lista goala de
+    // doctorIds ca "toti medicii activi" (CalendarService.getByDateRangeAndDoctors), deci daca
+    // am trimite cererea oricum am afisa exact opusul a ce a cerut utilizatorul.
+    const nothingSelected = Boolean(filters) && !filters.roomId && filters.doctorIds?.length === 0;
+
     const fetchAppointments = useCallback(async ({ isPoll = false } = {}) => {
+        // Pana cand filtrul raporteaza prima data, nu stim ce medici sa cerem — a doua cerere ar
+        // fi oricum aruncata de prima notificare a meniului.
+        if (canFilter && filters === null) return;
+
         const from = view === "day" ? startOfDay(date) : startOfWeek(date, { locale: ro });
         const to = view === "day" ? endOfDay(date) : endOfWeek(date, { locale: ro });
 
         try {
-            const data = await appointmentApi.getCalendarAppointments({
-                from: from.toISOString(),
-                to: to.toISOString(),
-            });
+            const data = nothingSelected
+                ? []
+                : await appointmentApi.getCalendarAppointments({
+                      from: from.toISOString(),
+                      to: to.toISOString(),
+                      doctorIds: filters?.doctorIds,
+                      roomId: filters?.roomId,
+                  });
 
             const mapped = data.map((appt) => ({
                 id: appt.id,
@@ -178,7 +204,7 @@ export default function CalendarPage() {
             setSwitchingView(false);
             isFirstLoad.current = false;
         }
-    }, [view, date]);
+    }, [view, date, filters, canFilter, nothingSelected]);
 
     useEffect(() => {
         if (isFirstLoad.current) {
@@ -200,6 +226,11 @@ export default function CalendarPage() {
 
         return () => clearInterval(pollingRef.current);
     }, [fetchAppointments, modalMode]);
+
+    // Referinta trebuie sa fie stabila: DoctorFilterMenu tine `onFilterChange` in dependentele
+    // efectului care notifica, iar o functie noua la fiecare randare ar reporni debounce-ul la
+    // nesfarsit (notificare -> randare -> efect -> notificare).
+    const handleFilterChange = useCallback((next) => setFilters(next), []);
 
     function handleSelectSlot(slotInfo) {
         setSelectedSlot(slotInfo);
@@ -401,7 +432,13 @@ export default function CalendarPage() {
 
     return (
         <div style={{ padding: "20px", height: "80vh" }}>
-            <h1>Calendar Programari</h1>
+            {/* Meniul de filtrare sta in afara blocului de `loading`: la prima incarcare el e cel
+                care spune ce medici sa cerem, deci trebuie sa fie randat inainte de calendar.
+                Pentru rolul DOCTOR componenta se ascunde singura. */}
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                <h1 style={{ margin: 0 }}>Calendar Programari</h1>
+                <DoctorFilterMenu onFilterChange={handleFilterChange} />
+            </div>
 
             {error && <p style={{ color: "#c0392b" }}>{error}</p>}
 
@@ -439,6 +476,13 @@ export default function CalendarPage() {
                                 {label}
                             </div>
                         ))}
+                        {/* Pentru DOCTOR toate blocurile sunt ale aceluiasi medic, deci dunga nu
+                            distinge nimic si nota ar fi zgomot. */}
+                        {canFilter && (
+                            <span style={{ fontSize: "0.85rem", color: "#666" }}>
+                                Dunga din stanga = medicul (aceleasi culori ca in filtru)
+                            </span>
+                        )}
                     </div>
 
                     <Calendar
@@ -469,7 +513,9 @@ export default function CalendarPage() {
 
                     {events.length === 0 && !error && (
                         <p style={{ textAlign: "center", color: "#999", marginTop: "12px" }}>
-                            Nicio programare in acest interval.
+                            {nothingSelected
+                                ? "Niciun medic bifat in filtru — calendarul e gol."
+                                : "Nicio programare in acest interval."}
                         </p>
                     )}
                 </>

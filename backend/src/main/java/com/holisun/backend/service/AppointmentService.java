@@ -62,6 +62,9 @@ public class AppointmentService {
         newAppointment.setEndTime(endTime);
         newAppointment.setNotes(dto.notes());
         newAppointment.setStatus(AppointmentStatus.SCHEDULED);
+        // B7: pretul se fotografiaza acum. Raportul de vanzari citeste aceasta valoare, deci o
+        // schimbare ulterioara de tarif nu mai rescrie cifrele lunilor deja raportate.
+        newAppointment.setPriceAtBooking(service.getPrice());
 
         Appointment saved = appointmentRepository.save(newAppointment);
 
@@ -98,6 +101,15 @@ public class AppointmentService {
 
         availabilityValidatorService.validate(dto.doctorId(), dto.roomId(), dto.startTime(), endTime, id);
         Equipment equipment = equipmentAllocationService.allocate(service, dto.roomId(), dto.startTime(), endTime, id);
+
+        // B7: o reprogramare (alta ora, acelasi serviciu) pastreaza pretul din momentul rezervarii —
+        // pacientul a acceptat tariful de atunci. Daca se schimba serviciul, pretul vechi nu mai
+        // are ce descrie, deci il refotografiem pe cel al serviciului nou.
+        boolean serviceChanged = appointment.getService() == null
+                || !appointment.getService().getId().equals(service.getId());
+        if (serviceChanged || appointment.getPriceAtBooking() == null) {
+            appointment.setPriceAtBooking(service.getPrice());
+        }
 
         appointment.setPatient(patient);
         appointment.setDoctor(doctor);

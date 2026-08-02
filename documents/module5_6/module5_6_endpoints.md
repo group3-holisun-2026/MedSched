@@ -148,7 +148,10 @@ type SalesReportResponse = {
   Numitor: pentru medici, `work_schedules` din interval; pentru cabinete, programul clinicii din
   config (08:00-20:00, Luni-Vineri). Numitor 0 → rata 0; frontend-ul afiseaza `—`.
 - **No-show**: `noShows / total`, unde `total` exclude programarile `CANCELLED`.
-- **Vanzari**: doar programarile `COMPLETED`, la `service.price`.
+- **Vanzari**: doar programarile `COMPLETED`, la `appointment.priceAtBooking` — pretul inghetat in
+  momentul rezervarii (B7), **nu** `service.price` de azi. O schimbare de tarif nu mai rescrie
+  retroactiv lunile deja raportate. Pretul se refotografiaza doar daca o reprogramare schimba
+  serviciul; simpla mutare a orei pastreaza tariful acceptat de pacient.
 - Filtrarea se face pe `startTime`, nu pe `createdAt`.
 - Toate resursele active apar in raport, inclusiv cele cu 0 programari.
 
@@ -172,7 +175,43 @@ datele sunt valori de tip data cu format `dd.mm.yyyy` (cerinta explicita din F-6
 
 ---
 
-## 4. Configurare
+## 4. Calendar si programari — ce au schimbat Modulele 5-6
+
+Rutele sunt de la Modulul 3, dar contractul lor s-a mutat aici pentru ca au fost atinse de B7 si de
+filtrarea pe medic (PR #159, reintegrat).
+
+| Metoda | Path | Query | Raspuns |
+|---|---|---|---|
+| GET | `/api/appointments/calendar` | `from`, `to`, `doctorIds?`, `roomId?` | `CalendarAppointmentResponse[]` |
+
+```ts
+type CalendarAppointmentResponse = {
+  id: string;
+  doctorId: string; doctorName: string;   // doctorId e cheia culorii din doctorColors.js
+  roomId: string; roomName: string;
+  patientName: string; serviceName: string;
+  startTime: string; endTime: string;
+  status: AppointmentStatus;
+};
+```
+
+- `doctorIds` se trimite **repetat** (`?doctorIds=a&doctorIds=b`), nu ca CSV.
+- `roomId` are prioritate: daca e prezent, `doctorIds` e ignorat.
+- **`doctorIds` lipsa sau lista goala inseamna "toti medicii activi"**, nu "niciunul"
+  (`CalendarService.getByDateRangeAndDoctors`). Deci "deselecteaza tot" din filtru **nu** are voie sa
+  trimita cererea — frontend-ul afiseaza direct calendarul gol, altfel utilizatorul primea exact
+  opusul a ce a cerut.
+- Rolul `DOCTOR` e fortat pe propriul calendar in controller; `doctorIds` din query e ignorat pentru
+  el, iar `DoctorFilterMenu` nici nu se randeaza.
+- `GET /api/doctors` intoarce si medicii dezactivati, deci `DoctorResponse` are acum campul `active`;
+  filtrul afiseaza doar medicii activi.
+
+`AppointmentResponse` (de la `GET /api/appointments/{id}`) are in plus `priceAtBooking: number` —
+pretul inghetat la rezervare, in RON. Poate diferi de `service.price` de azi; asta e intentia.
+
+---
+
+## 5. Configurare
 
 ```yaml
 app:
