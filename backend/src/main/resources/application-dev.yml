@@ -5,6 +5,14 @@ spring:
     password: ${DB_PASS:postgres}
     driver-class-name: org.postgresql.Driver
 
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:medsched2026@gmail.com}
+    # Fara valoare implicita aplicatia nu mai porneste la nimeni care nu are variabila setata.
+    # Contul real se seteaza doar prin env, la demo (impreuna cu EMAIL_ENABLED=true).
+    password: ${ACCOUNT_PASSWORD:}
+
   jpa:
     hibernate:
       ddl-auto: update # Creează/actualizează tabelele automat în dev

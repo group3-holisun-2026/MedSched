@@ -98,6 +98,11 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator-test</artifactId>
             <scope>test</scope>
         </dependency>
@@ -126,6 +131,12 @@
             <groupId>com.twilio.sdk</groupId>
             <artifactId>twilio</artifactId>
             <version>12.1.1</version>
+        </dependency>
+
+        <!-- Modulul 5: notificari prin email (implementarea actuala) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
         <!-- Module 6: Excel export -->

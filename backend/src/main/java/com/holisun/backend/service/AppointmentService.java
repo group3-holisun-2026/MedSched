@@ -6,6 +6,7 @@ import com.holisun.backend.entity.*;
 import com.holisun.backend.enums.AppointmentStatus;
 import com.holisun.backend.mapper.AppointmentMapper;
 import com.holisun.backend.repository.*;
+import com.holisun.backend.service.notification.NotificationOutboxService;
 import com.holisun.backend.util.AppointmentStateMachine;
 import org.springframework.http.HttpStatus;
 import com.holisun.backend.entity.Service;
@@ -29,6 +30,7 @@ public class AppointmentService {
     private final AvailabilityValidatorService availabilityValidatorService;
     private final EquipmentAllocationService equipmentAllocationService;
     private final AppointmentStateMachine appointmentStateMachine;
+    private final NotificationOutboxService notificationOutboxService;
 
     @Transactional
     public AppointmentResponse create(AppointmentRequest dto) {
@@ -62,6 +64,10 @@ public class AppointmentService {
         newAppointment.setStatus(AppointmentStatus.SCHEDULED);
 
         Appointment saved = appointmentRepository.save(newAppointment);
+
+        notificationOutboxService.enqueueConfirmation(newAppointment);
+        notificationOutboxService.enqueueReminder(newAppointment);
+
         return appointmentMapper.toResponse(saved);
     }
 
@@ -103,6 +109,9 @@ public class AppointmentService {
         appointment.setNotes(dto.notes());
 
         Appointment saved = appointmentRepository.save(appointment);
+
+        notificationOutboxService.enqueueRescheduled(saved);
+
         return appointmentMapper.toResponse(saved);
     }
 
@@ -123,6 +132,8 @@ public class AppointmentService {
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
         this.appointmentRepository.save(appointment);
+
+        notificationOutboxService.enqueueCancelled(appointment);
     }
 
     @Transactional
