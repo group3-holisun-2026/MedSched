@@ -17,6 +17,8 @@ import Navbar from './components/Navbar';
 import SalesReportPage from './pages/Reports/SalesReportPage';
 import OccupancyReportPage from './pages/Reports/OccupancyReportPage';
 import NoShowReportPage from './pages/Reports/NoShowReportPage';
+// Pagina publica deschisa din linkul de confirmare/anulare
+import AppointmentConfirmPage from './pages/Public/AppointmentConfirmPage';
 
 function App() {
     return (
@@ -29,6 +31,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<LoginPage />} />
                     <Route path="/login" element={<LoginPage />} />
+                    <Route path="/c/:token" element={<AppointmentConfirmPage />} />
 
                     <Route
                         path="/dashboard"
