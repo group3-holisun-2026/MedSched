@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import LoginPage from './pages/LoginPage';
 import PatientPage from './pages/Patient/PatientPage';
+import PatientRecordsPage from './pages/Patient/PatientRecordsPage';
 import CalendarPage from './pages/Calendar/CalendarPage';
 import AuditLogPage from './pages/AuditLog/AuditLogPage';
 import ConsultationRecordPage from './pages/Consultation/ConsultationRecordPage';
@@ -12,6 +13,7 @@ import NotificationsPage from './pages/Notifications/NotificationsPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
+import ScrollToTop from './components/ScrollToTop';
 // Importurile pentru rapoarte
 import SalesReportPage from './pages/Reports/SalesReportPage';
 import OccupancyReportPage from './pages/Reports/OccupancyReportPage';
@@ -24,6 +26,7 @@ function App() {
         <BrowserRouter>
             <Toaster richColors position="top-right" closeButton />
             <AuthProvider>
+                <ScrollToTop />
                 <Navbar />
 
                 {/* Rutele care schimbă ecranele */}
@@ -53,6 +56,16 @@ function App() {
                         element={
                             <PrivateRoute roles={['ADMIN']}>
                                 <AuditLogPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    {/* Fisele sunt continut clinic (F-202): RECEPTION nu are acces, la fel ca
+                        pe /appointments/:id/record. */}
+                    <Route
+                        path="/patients/:patientId/records"
+                        element={
+                            <PrivateRoute roles={['ADMIN', 'DOCTOR']}>
+                                <PatientRecordsPage />
                             </PrivateRoute>
                         }
                     />

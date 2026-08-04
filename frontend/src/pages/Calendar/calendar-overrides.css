@@ -23,6 +23,32 @@
     padding: 0 6px;
 }
 
+/*
+ * Evidentierea programului de lucru, activa doar cand in filtru ramane bifat un singur medic
+ * (vezi slotPropGetter din CalendarPage).
+ *
+ * Umbrim orele NEDISPONIBILE in loc sa coloram orele de lucru: programarile sunt deja blocuri
+ * colorate, iar un fundal in plus sub ele ar face textul ilizibil. Asa, zona utila ramane alba
+ * si curata, iar restul grilei se retrage in fundal.
+ */
+/* Hasura discreta, peste gri, separa "inchis" de "liber, dar ocupabil" si pentru cine nu
+   distinge nuantele apropiate. E pusa ca background-image, nu ca ::after: sloturile sunt
+   copii flex fara inaltime rezolvata, iar un overlay cu height:100% ar ramane invizibil. */
+.rbc-time-view .rbc-day-slot .rbc-time-slot.rbc-slot-off-duty {
+    background-color: #eceff3;
+    background-image: repeating-linear-gradient(
+        135deg,
+        transparent,
+        transparent 5px,
+        rgba(100, 116, 139, 0.13) 5px,
+        rgba(100, 116, 139, 0.13) 6px
+    );
+}
+
+.rbc-time-view .rbc-day-slot .rbc-time-slot.rbc-slot-working {
+    background-color: #ffffff;
+}
+
 /* Textul evenimentului se incadreaza pe mai multe randuri in loc sa fie retezat. */
 .rbc-event {
     padding: 3px 6px;

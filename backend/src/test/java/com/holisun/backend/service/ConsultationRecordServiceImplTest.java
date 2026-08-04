@@ -277,15 +277,112 @@ class ConsultationRecordServiceImplTest {
         verify(consultationRecordRepository).saveAndFlush(unlocked);
     }
 
+    /** Programare in desfasurare acum: testele care nu vizeaza fereastra de editare cad in ea. */
     private void stubAppointment(
             UUID appointmentId,
             AppointmentStatus status,
             LocalDateTime completedAt
     ) {
+        stubAppointment(
+                appointmentId,
+                status,
+                completedAt,
+                LocalDateTime.now().minusMinutes(15),
+                LocalDateTime.now().plusMinutes(15)
+        );
+    }
+
+    @Test
+    void createIsRejectedBeforeAppointmentStarts() {
+        UUID appointmentId = UUID.randomUUID();
+
+        // Fisa nu se scrie inainte ca pacientul sa fie macar asteptat: altfel ar exista consultatii
+        // consemnate integral pentru intalniri care nu au avut loc.
+        stubAppointment(
+                appointmentId,
+                AppointmentStatus.CONFIRMED,
+                null,
+                LocalDateTime.now().plusHours(2),
+                LocalDateTime.now().plusHours(3)
+        );
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> consultationRecordService.create(appointmentId, createRequest())
+        );
+
+        assertTrue(exception.getMessage().contains("inainte de ora programarii"));
+
+        verify(consultationRecordRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateIsRejectedMoreThan30MinutesAfterAppointmentEnds() {
+        UUID appointmentId = UUID.randomUUID();
+
+        // Programare de ieri, nefinalizata (deci verificarea pe completedAt nu s-ar declansa):
+        // fereastra [start, end + 30 min] e singura care o mai poate opri.
+        stubAppointment(
+                appointmentId,
+                AppointmentStatus.IN_PROGRESS,
+                null,
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().minusDays(1).plusMinutes(30)
+        );
+
+        when(consultationRecordRepository.findByAppointmentId(appointmentId))
+                .thenReturn(Optional.of(createExistingRecord(appointmentId, false)));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> consultationRecordService.update(appointmentId, createRequest())
+        );
+
+        assertTrue(exception.getMessage().contains("se putea completa"));
+
+        verify(consultationRecordRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateIsAllowedInsideThe30MinutesAfterAppointmentEnds() {
+        UUID appointmentId = UUID.randomUUID();
+
+        ConsultationRecord unlocked = createExistingRecord(appointmentId, false);
+
+        stubAppointment(
+                appointmentId,
+                AppointmentStatus.IN_PROGRESS,
+                null,
+                LocalDateTime.now().minusMinutes(40),
+                LocalDateTime.now().minusMinutes(10)
+        );
+
+        when(consultationRecordRepository.findByAppointmentId(appointmentId))
+                .thenReturn(Optional.of(unlocked));
+        when(consultationRecordRepository.saveAndFlush(unlocked))
+                .thenReturn(unlocked);
+
+        ConsultationRecordResponse response =
+                consultationRecordService.update(appointmentId, createRequest());
+
+        assertEquals("Migrena", response.diagnosis());
+
+        verify(consultationRecordRepository).saveAndFlush(unlocked);
+    }
+
+    private void stubAppointment(
+            UUID appointmentId,
+            AppointmentStatus status,
+            LocalDateTime completedAt,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
         Appointment appointment = new Appointment();
         appointment.setId(appointmentId);
         appointment.setStatus(status);
         appointment.setCompletedAt(completedAt);
+        appointment.setStartTime(startTime);
+        appointment.setEndTime(endTime);
 
         when(appointmentRepository.findById(appointmentId))
                 .thenReturn(Optional.of(appointment));

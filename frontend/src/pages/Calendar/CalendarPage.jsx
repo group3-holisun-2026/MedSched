@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
@@ -18,6 +18,12 @@ import Modal from "../../components/Modal";
 import Button from "../../components/Button";
 import DoctorFilterMenu from "../../components/Calendar/DoctorFilterMenu";
 import { getDoctorColor } from "../../components/Calendar/doctorColors";
+import {
+    formatSchedule,
+    isoDayOfWeek,
+    isWorkingAt,
+    normalizeSchedule,
+} from "../../components/Calendar/workingHours";
 import AppointmentForm from "./AppointmentForm";
 import { toast } from "sonner";
 
@@ -105,7 +111,7 @@ function EventContent({ event }) {
     return (
         <div title={event.title} style={{ lineHeight: 1.25, fontSize: "11px" }}>
             <div style={{ fontWeight: 600 }}>{appointment.patientName}</div>
-            <div>{appointment.serviceName}</div>
+            {appointment.serviceName && <div>{appointment.serviceName}</div>}
             <div style={{ opacity: 0.85 }}>{appointment.doctorName}</div>
         </div>
     );
@@ -125,6 +131,46 @@ export default function CalendarPage() {
     const [pollFailCount, setPollFailCount] = useState(0);
     const pollingRef = useRef(null);
     const isFirstLoad = useRef(true);
+
+    // Pagina se intinde exact pana la marginea de jos a ferestrei, ca grila sa fie singurul lucru
+    // care deruleaza. Inaltimea fixa de dinainte (80vh) plus navbar, titlu si legende depaseau
+    // ecranul cu cateva sute de pixeli, asa ca pagina intra cu antetul deja iesit in sus.
+    // Masuram, nu scadem o constanta: navbarul isi schimba inaltimea la wrap si intre roluri.
+    const pageRef = useRef(null);
+    const [pageHeight, setPageHeight] = useState(null);
+
+    useLayoutEffect(() => {
+        function measure() {
+            if (!pageRef.current) return;
+            const topInDocument = pageRef.current.getBoundingClientRect().top + window.scrollY;
+            // Podeaua evita ca pe ecrane mici calendarul sa fie strivit pana la ilizibil —
+            // acolo pagina redevine derulabila, ceea ce e in regula.
+            setPageHeight(Math.max(window.innerHeight - topInDocument, 420));
+        }
+
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, []);
+
+    // Grila ramane ancorata la 08:00, dar la ora 15:00 primul lucru vizibil nu trebuie sa fie
+    // dimineata deja consumata: o deschidem pe ora curenta, cu o jumatate de ora inainte, ca sa
+    // se vada si ce tocmai s-a terminat. Inainte de 08:30 tinta ramane 08:00, adica varful grilei.
+    //
+    // Calculat o singura data, la montare: react-big-calendar aplica scroll-ul doar in
+    // componentDidMount (TimeGrid.calculateScroll), iar o valoare care se schimba la fiecare
+    // randare ar fi oricum ignorata dupa aceea — dar ar reintroduce un Date nou la fiecare poll.
+    const initialScrollTime = useMemo(() => {
+        const now = new Date();
+        const minutesPastEight = (now.getHours() - 8) * 60 + now.getMinutes() - 30;
+
+        // Construit pe ziua de azi, nu prin scaderea a 30 de minute din `now`: la 00:10 scaderea
+        // ar sari in ziua precedenta, iar raportul calculat de biblioteca ar trimite grila la coada.
+        const target = new Date(now);
+        target.setHours(8, 0, 0, 0);
+        if (minutesPastEight > 0) target.setMinutes(minutesPastEight);
+        return target;
+    }, []);
 
     // Filtrul de medici / cabinet (PR #159). `null` = DoctorFilterMenu inca nu a raportat nimic;
     // pana atunci nu tragem programari, ca sa nu facem doua cereri la fiecare montare a paginii.
@@ -183,7 +229,10 @@ export default function CalendarPage() {
 
             const mapped = data.map((appt) => ({
                 id: appt.id,
-                title: `${appt.patientName} — ${appt.serviceName} (${appt.doctorName})`,
+                // Partile lipsa se sar, nu se interpoleaza: un serviciu nesetat producea
+                // literalmente "Ion Vasilescu — null (Dr. Popescu)" in tooltip si in modal.
+                title: [appt.patientName, appt.serviceName].filter(Boolean).join(" — ")
+                    + (appt.doctorName ? ` (${appt.doctorName})` : ""),
                 start: new Date(appt.startTime),
                 end: new Date(appt.endTime),
                 status: appt.status,
@@ -231,6 +280,39 @@ export default function CalendarPage() {
     // efectului care notifica, iar o functie noua la fiecare randare ar reporni debounce-ul la
     // nesfarsit (notificare -> randare -> efect -> notificare).
     const handleFilterChange = useCallback((next) => setFilters(next), []);
+
+    // Cu un singur medic bifat, grila poate arata exact cand lucreaza el. Cu doi sau mai multi
+    // orele s-ar suprapune si banda colorata n-ar mai insemna nimic, deci evidentierea se
+    // aprinde doar pe selectie unica — la fel si pentru DOCTOR, care isi vede propriul calendar
+    // fara sa aiba meniul de filtrare.
+    const soloDoctor = useMemo(() => {
+        const selected = filters?.selectedDoctors;
+        return selected?.length === 1 ? selected[0] : null;
+    }, [filters]);
+
+    const soloSchedule = useMemo(() => normalizeSchedule(soloDoctor), [soloDoctor]);
+
+    // Un medic fara nicio tura definita ar innegri toata grila, ceea ce arata a bug, nu a
+    // informatie — in cazul asta lasam calendarul neutru.
+    const highlightWorkingHours = Boolean(soloDoctor) && soloSchedule.length > 0;
+
+    const slotPropGetter = useCallback(
+        (slotDate) => {
+            if (!highlightWorkingHours) return {};
+            const minutes = slotDate.getHours() * 60 + slotDate.getMinutes();
+            return isWorkingAt(soloSchedule, isoDayOfWeek(slotDate), minutes)
+                ? { className: "rbc-slot-working" }
+                : { className: "rbc-slot-off-duty" };
+        },
+        [highlightWorkingHours, soloSchedule]
+    );
+
+    // Vederea pe zi are o singura coloana: acolo "nu are program" e o afirmatie utila,
+    // pentru ca inseamna ca ziua aceea e goala pentru medicul selectat.
+    const soloDayShifts = useMemo(() => {
+        if (!highlightWorkingHours || view !== "day") return null;
+        return soloSchedule.filter((s) => s.dayOfWeek === isoDayOfWeek(date));
+    }, [highlightWorkingHours, soloSchedule, view, date]);
 
     function handleSelectSlot(slotInfo) {
         setSelectedSlot(slotInfo);
@@ -431,7 +513,16 @@ export default function CalendarPage() {
     }
 
     return (
-        <div style={{ padding: "20px", height: "80vh" }}>
+        <div
+            ref={pageRef}
+            style={{
+                padding: "20px",
+                height: pageHeight ?? "80vh",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             {/* Meniul de filtrare sta in afara blocului de `loading`: la prima incarcare el e cel
                 care spune ce medici sa cerem, deci trebuie sa fie randat inainte de calendar.
                 Pentru rolul DOCTOR componenta se ascunde singura. */}
@@ -485,31 +576,83 @@ export default function CalendarPage() {
                         )}
                     </div>
 
-                    <Calendar
-                        localizer={localizer}
-                        events={events}
-                        startAccessor="start"
-                        endAccessor="end"
-                        view={view}
-                        date={date}
-                        onView={setView}
-                        onNavigate={setDate}
-                        views={["day", "week"]}
-                        style={{ height: "100%" }}
-                        selectable
-                        onSelectSlot={handleSelectSlot}
-                        onSelectEvent={handleSelectEvent}
-                        eventPropGetter={eventStyleGetter}
-                        components={{ event: EventContent }}
-                        // Slot de 15 minute, 4 sloturi pe grup => o eticheta pe ora, dar
-                        // selectia din grila cade pe :00 / :15 / :30 / :45.
-                        step={15}
-                        timeslots={4}
-                        // Grila e limitata la programul clinicii (08:00-20:00), deci nu mai e nevoie
-                        // de scrollToTime — ziua se deschide direct pe prima ora utila.
-                        min={CALENDAR_MIN_TIME}
-                        max={CALENDAR_MAX_TIME}
-                    />
+                    {/* Cand un singur medic e bifat, spunem in clar al cui e programul colorat —
+                        altfel banda alba din grila e ambigua intre "liber" si "inchis". */}
+                    {highlightWorkingHours && (
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                flexWrap: "wrap",
+                                marginBottom: "10px",
+                                fontSize: "0.85rem",
+                                color: "#444",
+                            }}
+                        >
+                            <span
+                                aria-hidden="true"
+                                style={{
+                                    display: "inline-block",
+                                    width: "12px",
+                                    height: "12px",
+                                    borderRadius: "3px",
+                                    backgroundColor: "#ffffff",
+                                    border: `2px solid ${getDoctorColor(soloDoctor.id).dot}`,
+                                }}
+                            />
+                            <span>
+                                Zonele albe = programul lui <strong>{soloDoctor.fullName}</strong>
+                                {" — "}
+                                {formatSchedule(soloSchedule)}
+                            </span>
+                        </div>
+                    )}
+
+                    {soloDayShifts?.length === 0 && (
+                        <p
+                            style={{
+                                marginBottom: "10px",
+                                fontSize: "0.85rem",
+                                color: "#8a6d3b",
+                            }}
+                        >
+                            {soloDoctor.fullName} nu are program de lucru in aceasta zi.
+                        </p>
+                    )}
+
+                    {/* minHeight: 0 e obligatoriu — fara el copilul flex refuza sa coboare sub
+                        inaltimea continutului, grila de 12 ore ramane la 1440px si impinge
+                        pagina in jos exact ca inainte, doar ca prin alt drum. */}
+                    <div style={{ flex: "1 1 auto", minHeight: 0 }}>
+                        <Calendar
+                            localizer={localizer}
+                            events={events}
+                            startAccessor="start"
+                            endAccessor="end"
+                            view={view}
+                            date={date}
+                            onView={setView}
+                            onNavigate={setDate}
+                            views={["day", "week"]}
+                            style={{ height: "100%" }}
+                            selectable
+                            onSelectSlot={handleSelectSlot}
+                            onSelectEvent={handleSelectEvent}
+                            eventPropGetter={eventStyleGetter}
+                            slotPropGetter={slotPropGetter}
+                            components={{ event: EventContent }}
+                            // Slot de 15 minute, 4 sloturi pe grup => o eticheta pe ora, dar
+                            // selectia din grila cade pe :00 / :15 / :30 / :45.
+                            step={15}
+                            timeslots={4}
+                            // Grila e limitata la programul clinicii (08:00-20:00), iar scroll-ul
+                            // initial cade pe ora curenta (vezi initialScrollTime).
+                            min={CALENDAR_MIN_TIME}
+                            max={CALENDAR_MAX_TIME}
+                            scrollToTime={initialScrollTime}
+                        />
+                    </div>
 
                     {events.length === 0 && !error && (
                         <p style={{ textAlign: "center", color: "#999", marginTop: "12px" }}>
@@ -543,76 +686,122 @@ export default function CalendarPage() {
             <Modal isOpen={modalMode === "details"} onClose={closeModal} title="Detalii programare">
                 {selectedEvent && (
                     <div>
-                        <p><strong>{selectedEvent.title}</strong></p>
-                        <p>Status: {STATUS_LABELS[selectedEvent.status] || selectedEvent.status}</p>
-                        <p>
-                            {format(selectedEvent.start, "dd.MM.yyyy HH:mm")} —{" "}
-                            {format(selectedEvent.end, "HH:mm")}
-                        </p>
+                        {/* Antet: cine si ce, cu statusul ca pastila — inainte totul era o singura
+                            linie "Pacient — Serviciu (Medic)" din care nu se distingea nimic. */}
+                        <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
+                            <div className="min-w-0">
+                                <div className="truncate text-base font-semibold">
+                                    {selectedEvent.raw.patientName}
+                                </div>
+                                <div className="truncate text-sm text-muted-foreground">
+                                    {selectedEvent.raw.serviceName || "Serviciu nespecificat"}
+                                </div>
+                            </div>
+                            <span
+                                className="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
+                                style={{ backgroundColor: STATUS_COLORS[selectedEvent.status] || "#a0a0a0" }}
+                            >
+                                {STATUS_LABELS[selectedEvent.status] || selectedEvent.status}
+                            </span>
+                        </div>
+
+                        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                            <dt className="text-muted-foreground">Data</dt>
+                            <dd className="font-medium">
+                                {format(selectedEvent.start, "EEEE, dd MMMM yyyy", { locale: ro })}
+                            </dd>
+
+                            <dt className="text-muted-foreground">Interval</dt>
+                            <dd className="font-medium tabular-nums">
+                                {format(selectedEvent.start, "HH:mm")} — {format(selectedEvent.end, "HH:mm")}
+                                <span className="ml-2 font-normal text-muted-foreground">
+                                    ({Math.round((selectedEvent.end - selectedEvent.start) / 60000)} min)
+                                </span>
+                            </dd>
+
+                            <dt className="text-muted-foreground">Medic</dt>
+                            <dd className="font-medium">{selectedEvent.raw.doctorName}</dd>
+
+                            {selectedEvent.raw.roomName && (
+                                <>
+                                    <dt className="text-muted-foreground">Cabinet</dt>
+                                    <dd className="font-medium">{selectedEvent.raw.roomName}</dd>
+                                </>
+                            )}
+
+                            {/* Din eventDetail, nu din DTO-ul de calendar, care nu le contine.
+                                Apar doar dupa ce se incarca — de aceea sunt conditionate separat. */}
+                            {eventDetail?.priceAtBooking != null && (
+                                <>
+                                    <dt className="text-muted-foreground">Preț</dt>
+                                    <dd className="font-medium tabular-nums">
+                                        {eventDetail.priceAtBooking} RON
+                                    </dd>
+                                </>
+                            )}
+
+                            {eventDetail?.notes && (
+                                <>
+                                    <dt className="text-muted-foreground">Observații</dt>
+                                    <dd className="whitespace-pre-wrap">{eventDetail.notes}</dd>
+                                </>
+                            )}
+                        </dl>
 
                         {eventDetailLoading && (
-                            <p style={{ color: "#666" }}>
-                                Se incarca actiunile disponibile...
+                            <p className="mt-3 text-sm text-muted-foreground">
+                                Se încarcă acțiunile disponibile...
                             </p>
                         )}
 
                         {/* Coada de notificari e ADMIN-only in backend, deci pentru RECEPTION
                             si DOCTOR sectiunea nu se randeaza deloc (nu se randeaza goala). */}
                         {role === "ADMIN" && (
-                            <>
-                                <hr style={{ margin: "16px 0" }} />
-                                <h3 style={{ marginBottom: "8px" }}>Notificari email</h3>
+                            <div className="mt-4 border-t border-border pt-3">
+                                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Notificări email
+                                </h3>
 
                                 {eventNotificationsLoading && (
-                                    <p style={{ color: "#666" }}>Se incarca notificarile...</p>
+                                    <p className="text-sm text-muted-foreground">Se încarcă notificările...</p>
                                 )}
 
                                 {!eventNotificationsLoading && eventNotifications === null && (
-                                    <p style={{ color: "#c0392b" }}>
-                                        Notificarile nu au putut fi incarcate.
+                                    <p className="text-sm text-destructive">
+                                        Notificările nu au putut fi încărcate.
                                     </p>
                                 )}
 
                                 {!eventNotificationsLoading && eventNotifications?.length === 0 && (
-                                    <p style={{ color: "#666" }}>
-                                        Nicio notificare pentru aceasta programare.
+                                    <p className="text-sm text-muted-foreground">
+                                        Nicio notificare pentru această programare.
                                     </p>
                                 )}
 
                                 {!eventNotificationsLoading && eventNotifications?.length > 0 && (
-                                    <ul
-                                        style={{
-                                            listStyle: "none",
-                                            padding: "12px",
-                                            margin: "0 0 16px",
-                                            border: "1px solid #ddd",
-                                            borderRadius: "8px",
-                                            backgroundColor: "#fafafa",
-                                        }}
-                                    >
+                                    <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
                                         {eventNotifications.map((n) => (
                                             <li
                                                 key={n.id}
-                                                style={{
-                                                    display: "flex",
-                                                    justifyContent: "space-between",
-                                                    gap: "12px",
-                                                    padding: "4px 0",
-                                                    fontSize: "0.9rem",
-                                                }}
+                                                className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
                                             >
-                                                <span>{NOTIFICATION_TRIGGER_LABELS[n.trigger] || n.trigger}</span>
-                                                <span style={{ color: NOTIFICATION_STATUS_COLORS[n.status] || "#a0a0a0" }}>
+                                                <span className="min-w-0 truncate">
+                                                    {NOTIFICATION_TRIGGER_LABELS[n.trigger] || n.trigger}
+                                                </span>
+                                                <span
+                                                    className="shrink-0 font-medium"
+                                                    style={{ color: NOTIFICATION_STATUS_COLORS[n.status] || "#a0a0a0" }}
+                                                >
                                                     {NOTIFICATION_STATUS_LABELS[n.status] || n.status}
                                                 </span>
-                                                <span style={{ color: "#666" }}>
+                                                <span className="shrink-0 tabular-nums text-muted-foreground">
                                                     {format(new Date(n.sentAt ?? n.nextAttemptAt ?? n.createdAt), "dd.MM HH:mm")}
                                                 </span>
                                             </li>
                                         ))}
                                     </ul>
                                 )}
-                            </>
+                            </div>
                         )}
 
                         {renderActionButtons()}

@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
 import { getIncompletePatientsRequest } from "../../api/patients";
 
 export default function IncompletePatientsWidget({ onCompletePatient }) {
-    const { accessToken } = useAuth();
     const [page, setPage] = useState(null);
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState("createdAt,desc");
@@ -17,7 +15,7 @@ export default function IncompletePatientsWidget({ onCompletePatient }) {
             setLoading(true);
             setError(null);
             try {
-                const data = await getIncompletePatientsRequest(accessToken, { search, sort });
+                const data = await getIncompletePatientsRequest({ search, sort });
                 if (!cancelled) setPage(data);
             } catch (err) {
                 if (!cancelled) setError(err.message);
@@ -31,7 +29,7 @@ export default function IncompletePatientsWidget({ onCompletePatient }) {
         return () => {
             cancelled = true;
         };
-    }, [accessToken, search, sort]);
+    }, [search, sort]);
 
     return (
         <div style={{ border: "1px solid #ccc", padding: "15px", marginBottom: "20px" }}>

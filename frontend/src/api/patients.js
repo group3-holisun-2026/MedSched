@@ -1,105 +1,101 @@
-const BASE_URL = "http://localhost:8080/api";
+import apiClient from "../services/apiClient";
+
+// Token-ul e pus de interceptorul de request din apiClient, care il reimprospateaza singur
+// pe 401 — de aceea niciuna dintre functiile de aici nu mai primeste accessToken.
 
 // ---- PATIENTS ----
 
-export async function getPatientsRequest(accessToken, search = "") {
-    const params = search ? `?search=${encodeURIComponent(search)}` : "";
-    const response = await fetch(`${BASE_URL}/patients${params}`, {
-        method: "GET",
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-        },
-    });
-
-    if (!response.ok) {
+export async function getPatientsRequest(search = "") {
+    try {
+        const response = await apiClient.get("/patients", {
+            params: search ? { search } : undefined,
+        });
+        return response.data; // PatientResponse[]
+    } catch {
         throw new Error("Nu s-au putut obtine pacientii");
     }
-
-    return response.json(); // PatientResponse[]
 }
 
-export async function getPatientByIdRequest(accessToken, id) {
-    const response = await fetch(`${BASE_URL}/patients/${id}`, {
-        method: "GET",
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-        },
-    });
-
-    if (!response.ok) {
+export async function getPatientByIdRequest(id) {
+    try {
+        const response = await apiClient.get(`/patients/${id}`);
+        return response.data; // PatientResponse
+    } catch {
         throw new Error("Pacientul nu a fost gasit");
     }
-
-    return response.json(); // PatientResponse
 }
 
-export async function quickCreatePatientRequest(accessToken, { firstName, lastName, phone }) {
-    const response = await fetch(`${BASE_URL}/patients`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ firstName, lastName, phone }),
-    });
-
-    if (!response.ok) {
+export async function quickCreatePatientRequest({ firstName, lastName, phone, email }) {
+    try {
+        // Emailul e optional, dar `""` pica pe @Email in backend — trimitem campul doar daca a fost completat.
+        const response = await apiClient.post("/patients", {
+            firstName,
+            lastName,
+            phone,
+            email: email || undefined,
+        });
+        return response.data; // PatientResponse (201)
+    } catch {
         throw new Error("Nu s-a putut crea pacientul");
     }
-
-    return response.json(); // PatientResponse (201)
 }
 
-export async function updatePatientRequest(accessToken, id, patientData) {
-    const response = await fetch(`${BASE_URL}/patients/${id}`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(patientData),
-    });
-
-    if (!response.ok) {
+export async function updatePatientRequest(id, patientData) {
+    try {
+        const response = await apiClient.put(`/patients/${id}`, patientData);
+        return response.data; // PatientResponse
+    } catch {
         throw new Error("Nu s-a putut actualiza pacientul");
     }
-
-    return response.json(); // PatientResponse
 }
 
-export async function getIncompletePatientsRequest(accessToken, { search = "", sort = "createdAt,asc" } = {}) {
-    const params = new URLSearchParams();
-    if (search) params.append("search", search);
-    params.append("sort", sort);
+export async function getIncompletePatientsRequest({ search = "", sort = "createdAt,asc" } = {}) {
+    try {
+        const params = { sort };
+        if (search) params.search = search;
 
-    const response = await fetch(`${BASE_URL}/patients/incomplete?${params.toString()}`, {
-        method: "GET",
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-        },
-    });
-
-    if (!response.ok) {
+        const response = await apiClient.get("/patients/incomplete", { params });
+        return response.data; // Page<PatientResponse>
+    } catch {
         throw new Error("Nu s-au putut obtine pacientii incompleti");
     }
+}
 
-    return response.json(); // Page<PatientResponse>
+// ---- FISE DE CONSULTATIE (istoricul clinic al pacientului) ----
+
+/**
+ * Id-urile pacientilor care au cel putin o fisa. Endpoint-ul e DOCTOR/ADMIN (F-202), deci
+ * pentru RECEPTION intoarce 403 — apelantul trateaza asta ca "niciun buton de fise", nu ca eroare.
+ */
+export async function getPatientsWithRecordsRequest() {
+    const response = await apiClient.get("/patients/with-records");
+    return response.data; // UUID[]
+}
+
+export async function getPatientRecordsRequest(patientId) {
+    try {
+        const response = await apiClient.get(`/patients/${patientId}/records`);
+        return response.data; // PatientRecordSummary[]
+    } catch {
+        throw new Error("Nu s-au putut obtine fisele pacientului");
+    }
 }
 
 // ---- ADAPTOR pentru compatibilitate cu AppointmentForm.jsx (stil patientApi.getAll()/.create()) ----
 
 export const patientApi = {
     getAll: async () => {
-        const patients = await getPatientsRequest(localStorage.getItem('accessToken'));
+        const patients = await getPatientsRequest();
         return patients.map((p) => ({ ...p, name: `${p.firstName} ${p.lastName}` }));
     },
-    create: async ({ name, phone }) => {
+    create: async ({ name, phone, email }) => {
         const [firstName, ...rest] = name.trim().split(' ');
         const lastName = rest.join(' ') || firstName;
-        const created = await quickCreatePatientRequest(localStorage.getItem('accessToken'), {
+        const created = await quickCreatePatientRequest({
             firstName,
             lastName,
             phone,
+            email,
         });
         return { ...created, name: `${created.firstName} ${created.lastName}` };
     },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
@@ -9,6 +9,13 @@ import { patientApi } from '../../api/patients';
 import { doctorApi } from '../../api/doctors';
 import { roomApi } from '../../api/rooms';
 import { appointmentApi } from '../../api/appointments';
+import {
+    DAY_LABELS,
+    formatSchedule,
+    isoDayOfWeek,
+    normalizeSchedule,
+    shiftsForDay,
+} from '../../components/Calendar/workingHours';
 
 // Optiuni fixe pentru selectorul de ora, intre 08:00 si 20:00 (programul clinicii), din 15 in 15
 // minute — acelasi pas ca grila de calendar. Folosim <select> in loc de <input type="time" min max>
@@ -42,6 +49,9 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
     const [showNewPatientForm, setShowNewPatientForm] = useState(false);
     const [newPatientName, setNewPatientName] = useState('');
     const [newPatientPhone, setNewPatientPhone] = useState('');
+    // Fara adresa aici, confirmarea pusa in coada la salvarea programarii se naste direct FAILED —
+    // pacientul creat pe loc nu avea cum sa primeasca emailul.
+    const [newPatientEmail, setNewPatientEmail] = useState('');
 
     // Listele de selectie nu depind de programarea editata — le incarcam o singura data, la
     // montare. Inainte, acest efect depindea de `initialData`, iar parintele recreeaza acel
@@ -114,6 +124,7 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
         setShowNewPatientForm(false);
         setNewPatientName('');
         setNewPatientPhone('');
+        setNewPatientEmail('');
     };
 
     const clearPatientSelection = () => {
@@ -155,6 +166,48 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
         return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    // ---------------------------------------------------- programul medicului
+    // Pana acum orarul medicului exista doar in backend: receptia alegea o ora la nimereala si
+    // afla ca e in afara programului abia dupa submit, dintr-un 409. Acum e vizibil in formular,
+    // iar orele imposibile sunt dezactivate din start.
+    const selectedDoctor = doctors.find(d => String(d.id) === String(formData.doctorId));
+    const doctorSchedule = useMemo(() => normalizeSchedule(selectedDoctor), [selectedDoctor]);
+    const scheduleSummary = useMemo(() => formatSchedule(doctorSchedule), [doctorSchedule]);
+
+    const selectedDayIso = startDatePart
+        ? isoDayOfWeek(new Date(`${startDatePart}T00:00:00`))
+        : null;
+    const shiftsOnSelectedDay = useMemo(
+        () => (selectedDayIso ? shiftsForDay(doctorSchedule, selectedDayIso) : []),
+        [doctorSchedule, selectedDayIso]
+    );
+
+    const selectedServiceDuration = services.find(
+        s => String(s.id) === String(formData.serviceId)
+    )?.defaultDurationMinutes ?? 0;
+
+    // Programarea trebuie sa incapa INTREAGA in tura, exact ca in WorkScheduleValidator: altfel
+    // un consult de 40 de minute inceput la 16:45 ar trece de filtrul din formular si ar pica
+    // oricum la salvare.
+    const canStartAt = useCallback((time) => {
+        // Fara medic sau fara orar cunoscut nu blocam nimic — necunoscutul nu e acelasi lucru
+        // cu interdictia, iar backendul ramane oricum arbitrul final.
+        if (!selectedDoctor || doctorSchedule.length === 0 || !startDatePart) return true;
+
+        const [hours, minutes] = time.split(':').map(Number);
+        const start = hours * 60 + minutes;
+        const end = start + selectedServiceDuration;
+
+        return shiftsOnSelectedDay.some(
+            shift => start >= shift.startMinutes && start < shift.endMinutes && end <= shift.endMinutes
+        );
+    }, [selectedDoctor, doctorSchedule, startDatePart, shiftsOnSelectedDay, selectedServiceDuration]);
+
+    const showScheduleHints = Boolean(selectedDoctor) && doctorSchedule.length > 0;
+    const dayIsOff = showScheduleHints && Boolean(startDatePart) && shiftsOnSelectedDay.length === 0;
+    const selectedTimeIsOff =
+        showScheduleHints && Boolean(startTimePart) && !canStartAt(startTimePart);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -165,11 +218,24 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
             return;
         }
 
+        // Aceeasi regula ca in backend, verificata inainte de request: altfel singurul feedback
+        // ar fi un 409 generic, dupa ce formularul a fost completat integral.
+        if (selectedTimeIsOff) {
+            toast.error(
+                `${selectedDoctor.fullName} nu are program in acest interval. Program: ${scheduleSummary}`
+            );
+            return;
+        }
+
         try {
             let finalPatientId = formData.patientId;
 
             if (showNewPatientForm) {
-                const newPatient = await patientApi.create({ name: newPatientName, phone: newPatientPhone });
+                const newPatient = await patientApi.create({
+                    name: newPatientName,
+                    phone: newPatientPhone,
+                    email: newPatientEmail,
+                });
                 finalPatientId = newPatient.id;
             }
 
@@ -286,6 +352,16 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                             onChange={(e) => setNewPatientPhone(e.target.value)}
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                         />
+                        <input
+                            type="email"
+                            placeholder="Email (pentru confirmare și reamintire)"
+                            value={newPatientEmail}
+                            onChange={(e) => setNewPatientEmail(e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500">
+                            Fără email, pacientul nu primește confirmarea și reamintirea de 24h.
+                        </p>
                         <button
                             type="button"
                             onClick={cancelNewPatient}
@@ -319,6 +395,19 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                             </option>
                         ))}
                     </select>
+
+                    {selectedDoctor && (
+                        showScheduleHints ? (
+                            <p className="mt-1 text-xs text-gray-600">
+                                <span className="font-semibold">Program:</span> {scheduleSummary}
+                            </p>
+                        ) : (
+                            <p className="mt-1 text-xs text-amber-700">
+                                Acest medic nu are ore de lucru definite — orice interval va fi
+                                respins la salvare.
+                            </p>
+                        )
+                    )}
                 </div>
 
                 {/* 3. CABINET */}
@@ -387,12 +476,36 @@ const AppointmentForm = ({ initialData, onSave, onCancel }) => {
                             {startTimePart && !TIME_SLOT_OPTIONS.includes(startTimePart) && (
                                 <option value={startTimePart}>{startTimePart} (in afara grilei)</option>
                             )}
-                            {TIME_SLOT_OPTIONS.map(t => (
-                                <option key={t} value={t}>{t}</option>
-                            ))}
+                            {TIME_SLOT_OPTIONS.map(t => {
+                                const available = canStartAt(t);
+                                return (
+                                    <option key={t} value={t} disabled={!available}>
+                                        {t}{available ? '' : ' — în afara programului'}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">Program: 08:00 - 20:00</p>
+
+                    {/* Ierarhia mesajelor: intai ziua libera (nicio ora nu ajuta), apoi ora
+                        invalida, si abia la final programul clinicii. */}
+                    {dayIsOff ? (
+                        <p className="text-xs text-amber-700 mt-1">
+                            {selectedDoctor.fullName} nu lucrează
+                            {selectedDayIso ? ` ${DAY_LABELS[selectedDayIso - 1].toLowerCase()}` : ''}.
+                            Program: {scheduleSummary}
+                        </p>
+                    ) : showScheduleHints && startDatePart ? (
+                        <p className={`text-xs mt-1 ${selectedTimeIsOff ? 'text-amber-700' : 'text-gray-500'}`}>
+                            {selectedDayIso ? DAY_LABELS[selectedDayIso - 1] : ''}:{' '}
+                            {shiftsOnSelectedDay
+                                .map(s => `${s.startLabel} - ${s.endLabel}`)
+                                .join(', ')}
+                            {selectedServiceDuration > 0 && ` · consultația durează ${selectedServiceDuration} min`}
+                        </p>
+                    ) : (
+                        <p className="text-xs text-gray-400 mt-1">Program: 08:00 - 20:00</p>
+                    )}
                 </div>
 
                 {/* PREVIEW ORA SFARSIT */}

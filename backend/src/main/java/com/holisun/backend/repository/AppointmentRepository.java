@@ -11,6 +11,20 @@ import java.util.UUID;
 
 public interface AppointmentRepository extends JpaRepository<Appointment, UUID> {
 
+    List<Appointment> findByPatientIdOrderByStartTimeDesc(UUID patientId);
+
+    /**
+     * Pacientii care au cel putin o fisa de consultatie. Ecranul de pacienti afiseaza butonul
+     * "Fise" doar pentru ei, iar o intrebare pe pacient ar insemna cate o cerere pe rand de tabel.
+     */
+    @Query("""
+            SELECT DISTINCT a.patient.id FROM Appointment a
+            WHERE EXISTS (
+                SELECT 1 FROM ConsultationRecord r WHERE r.appointmentId = a.id
+            )
+            """)
+    List<UUID> findPatientIdsWithConsultationRecords();
+
     @Query("""
             SELECT a FROM Appointment a
             WHERE a.doctor.id = :doctorId

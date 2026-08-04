@@ -81,9 +81,12 @@ function Navbar() {
 
     // Grila 1fr / auto / 1fr tine banda din mijloc centrata pe ecran indiferent cat de late sunt
     // marginile — cu flex + justify-between centrul s-ar deplasa cand se schimba rolul.
+    // Bara se intinde pe toata latimea (fara max-w + mx-auto): pe ecrane late logo-ul statea
+    // altfel la marginea containerului de 7xl, adica undeva in interiorul paginii. Logo la stanga
+    // extrema si contul la dreapta extrema e conventia obisnuita si lasa mai mult loc benzii.
     const shell = (middle) => (
         <nav className="mb-5 bg-primary text-primary-foreground shadow-sm">
-            <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3">
+            <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 py-3">
                 <div className="flex justify-start">{brand}</div>
                 <div className="flex justify-center">{middle}</div>
                 <div className="flex justify-end">{accountButton}</div>

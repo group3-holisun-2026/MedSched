@@ -103,8 +103,18 @@ export default function DoctorFilterMenu({ onFilterChange, className = "" }) {
     // "nu stiu", nu "niciun medic". Raportam "fara filtru" (`null`), ca sa se vada calendarul
     // intreg; altfel o eroare pe /api/doctors ar goli calendarul fara nicio explicatie.
     const doctorIds = error ? null : Array.from(selectedIds);
+    // Trimitem si medicii intregi, nu doar id-urile: calendarul are nevoie de `schedule` ca sa
+    // poata colora orele de lucru cand ramane bifat un singur medic, iar meniul e oricum
+    // singurul loc din pagina care a incarcat deja lista completa de la /api/doctors.
+    const selectedDoctors = error
+      ? []
+      : doctors.filter((d) => selectedIds.has(d.id));
     const notify = () =>
-      onFilterChange?.({ doctorIds, roomId: selectedRoomId || null });
+      onFilterChange?.({
+        doctorIds,
+        roomId: selectedRoomId || null,
+        selectedDoctors,
+      });
 
     if (isFirstNotify.current) {
       isFirstNotify.current = false;
@@ -114,7 +124,15 @@ export default function DoctorFilterMenu({ onFilterChange, className = "" }) {
 
     debounceRef.current = setTimeout(notify, DEBOUNCE_MS);
     return () => clearTimeout(debounceRef.current);
-  }, [selectedIds, selectedRoomId, loading, error, canSeeFilter, onFilterChange]);
+  }, [
+    selectedIds,
+    selectedRoomId,
+    loading,
+    error,
+    canSeeFilter,
+    onFilterChange,
+    doctors,
+  ]);
 
   useEffect(() => {
     if (!isOpen) return;

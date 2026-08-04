@@ -25,7 +25,8 @@ public class AuditController {
 
     @GetMapping
     public ResponseEntity<List<AuditLogResponse>> search(
-            @RequestParam UUID user,
+            /** Optional — absent inseamna "toti utilizatorii" pentru intervalul cerut. */
+            @RequestParam(required = false) UUID user,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to
     ) {

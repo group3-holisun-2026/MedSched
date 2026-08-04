@@ -13,4 +13,7 @@ public interface AuditLogRepository extends Repository<AuditLog, UUID> {
 
 
     List<AuditLog> findByUserIdAndTimestampBetween(UUID userId, LocalDateTime from, LocalDateTime to);
+
+    /** Varianta fara filtru de utilizator: "ce s-a intamplat in clinica in intervalul asta". */
+    List<AuditLog> findByTimestampBetween(LocalDateTime from, LocalDateTime to);
 }

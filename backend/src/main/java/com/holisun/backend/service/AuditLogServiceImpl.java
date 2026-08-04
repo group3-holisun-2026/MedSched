@@ -32,16 +32,23 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @Transactional(readOnly = true)
     public List<AuditLogResponse> findByUserAndDateRange(UUID userId, LocalDateTime from, LocalDateTime to) {
-        if (userId == null || from == null || to == null) {
+        if (from == null || to == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Parametrii user, from si to sunt obligatorii.");
+                    "Parametrii from si to sunt obligatorii.");
         }
         if (from.isAfter(to)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Data de inceput trebuie sa fie inaintea celei de sfarsit.");
         }
 
-        return auditLogRepository.findByUserIdAndTimestampBetween(userId, from, to).stream()
+        // `userId` null inseamna "toti utilizatorii". Inainte era obligatoriu, ceea ce forta
+        // interfata sa ceara un UUID inainte de a putea afisa orice — nu se putea raspunde la
+        // "ce s-a intamplat ieri in clinica" fara sa stii dinainte pe cine cauti.
+        List<AuditLog> entries = userId == null
+                ? auditLogRepository.findByTimestampBetween(from, to)
+                : auditLogRepository.findByUserIdAndTimestampBetween(userId, from, to);
+
+        return entries.stream()
                 // Cel mai recent primul: cine se uita in audit cauta aproape mereu ce s-a
                 // intamplat ultima data, nu ce s-a intamplat prima data.
                 .sorted(Comparator.comparing(AuditLog::getTimestamp).reversed())

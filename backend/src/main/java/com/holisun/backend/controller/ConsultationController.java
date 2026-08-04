@@ -7,7 +7,9 @@ import com.holisun.backend.enums.AuditAction;
 import com.holisun.backend.service.ConsultationRecordService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +43,25 @@ public class ConsultationController {
     @Audited(action = AuditAction.READ, entityName = "ConsultationRecord")
     public ResponseEntity<ConsultationRecordResponse> getByAppointmentId(@PathVariable UUID appointmentId) {
         return ResponseEntity.ok(consultationRecordService.getByAppointmentId(appointmentId));
+    }
+
+    /**
+     * Exportul e supus aceleiasi reguli de acces ca citirea fisei (DOCTOR/ADMIN, prin
+     * @PreAuthorize pe clasa) — un PDF descarcabil de oricine ar ocoli tocmai protectia
+     * continutului clinic pe care o impune F-202.
+     */
+    @GetMapping("/export/pdf")
+    @Audited(action = AuditAction.READ, entityName = "ConsultationRecord")
+    public ResponseEntity<byte[]> exportPdf(@PathVariable UUID appointmentId) {
+        byte[] file = consultationRecordService.exportPdf(appointmentId);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"fisa-consultatie_" + appointmentId + ".pdf\""
+                )
+                .body(file);
     }
 
     @PostMapping

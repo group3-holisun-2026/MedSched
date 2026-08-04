@@ -22,6 +22,20 @@ public class ConsultationRecordServiceImpl
 
     private final ConsultationRecordRepository consultationRecordRepository;
     private final AppointmentRepository appointmentRepository;
+    private final ConsultationRecordPdfExporter pdfExporter;
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] exportPdf(UUID appointmentId) {
+        ConsultationRecord record = findRequired(appointmentId);
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Programarea " + appointmentId + " nu a fost gasita."
+                ));
+
+        return pdfExporter.export(toResponse(record), appointment);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -119,6 +133,28 @@ public class ConsultationRecordServiceImpl
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Programarea " + appointmentId + " nu a fost gasita."
                 ));
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // Fisa apartine consultatiei propriu-zise: nu se scrie inainte ca pacientul sa fie
+        // asteptat, si nici mult dupa ce ora programata s-a incheiat. Fereastra e
+        // [startTime, endTime + 30 min] si se aplica indiferent de status — verificarea de mai
+        // jos, legata de completedAt, acopera doar programarile deja finalizate.
+        if (now.isBefore(appointment.getStartTime())) {
+            throw new IllegalStateException(
+                    "Fisa de consultatie nu poate fi completata inainte de ora programarii ("
+                            + appointment.getStartTime() + ")."
+            );
+        }
+
+        LocalDateTime editWindowEnd = appointment.getEndTime().plus(EDIT_GRACE_PERIOD);
+        if (now.isAfter(editWindowEnd)) {
+            throw new IllegalStateException(
+                    "Fisa de consultatie se putea completa pana la " + editWindowEnd
+                            + " (" + EDIT_GRACE_PERIOD.toMinutes()
+                            + " de minute dupa sfarsitul programarii)."
+            );
+        }
 
         if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
             return;

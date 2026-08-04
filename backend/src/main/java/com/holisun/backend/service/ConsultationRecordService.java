@@ -28,6 +28,12 @@ public interface ConsultationRecordService {
     ConsultationRecordResponse update(UUID appointmentId, ConsultationRecordRequest dto);
 
     /**
+     * Fisa in format PDF, pentru dosarul pacientului. Exportul e o citire: nu tine cont de
+     * fereastra de editare — o fisa blocata trebuie sa ramana tiparibila.
+     */
+    byte[] exportPdf(UUID appointmentId);
+
+    /**
      * Hook pentru Modulul 3/4 (tranzitia catre COMPLETED) — nu e apelat de nimeni in acest modul.
      */
     void lock(UUID appointmentId);

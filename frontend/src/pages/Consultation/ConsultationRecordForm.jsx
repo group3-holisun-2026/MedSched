@@ -1,131 +1,126 @@
 import { useState, useEffect } from "react";
+import Button from "../../components/Button";
+
+const TEXTAREA = "w-full resize-y rounded-md border border-input bg-input-background px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-70";
+
+// Ordinea e cea a consultatiei reale — de la ce a adus pacientul aici pana la ce pleaca cu el.
+const FIELDS = [
+    {
+        key: "presentationMotive",
+        label: "Motivul prezentării",
+        rows: 2,
+        placeholder: "Ce l-a adus pe pacient astăzi",
+    },
+    {
+        key: "anamnesis",
+        label: "Anamneză",
+        rows: 4,
+        placeholder: "Istoric, debut, evoluție, tratamente anterioare",
+    },
+    {
+        key: "clinicalExam",
+        label: "Examen clinic",
+        rows: 4,
+        placeholder: "Constante, examen obiectiv pe aparate și sisteme",
+    },
+    {
+        key: "diagnosis",
+        label: "Diagnostic",
+        rows: 2,
+        placeholder: "Diagnostic principal și secundare",
+    },
+    {
+        key: "prescription",
+        label: "Recomandări / rețetă",
+        rows: 4,
+        placeholder: "Tratament, doze, durata, data reevaluării",
+    },
+];
 
 export default function ConsultationRecordForm({
     record,
     readOnly,
+    readOnlyReason,
     onSubmit,
     saving,
     showFinalize = false,
     onFinalize,
     finalizing = false,
 }) {
-    const [presentationMotive, setPresentationMotive] = useState("");
-    const [anamnesis, setAnamnesis] = useState("");
-    const [clinicalExam, setClinicalExam] = useState("");
-    const [diagnosis, setDiagnosis] = useState("");
-    const [prescription, setPrescription] = useState("");
+    const [values, setValues] = useState({
+        presentationMotive: "",
+        anamnesis: "",
+        clinicalExam: "",
+        diagnosis: "",
+        prescription: "",
+    });
 
     useEffect(() => {
         if (record) {
-            setPresentationMotive(record.presentationMotive || "");
-            setAnamnesis(record.anamnesis || "");
-            setClinicalExam(record.clinicalExam || "");
-            setDiagnosis(record.diagnosis || "");
-            setPrescription(record.prescription || "");
+            setValues({
+                presentationMotive: record.presentationMotive || "",
+                anamnesis: record.anamnesis || "",
+                clinicalExam: record.clinicalExam || "",
+                diagnosis: record.diagnosis || "",
+                prescription: record.prescription || "",
+            });
         }
     }, [record]);
 
-    function currentValues() {
-        return { presentationMotive, anamnesis, clinicalExam, diagnosis, prescription };
-    }
-
     function handleSubmit(e) {
         e.preventDefault();
-        onSubmit(currentValues());
+        onSubmit(values);
     }
 
     return (
         <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: "12px" }}>
-                <label>
-                    Motiv:
-                    <br />
-                    <textarea
-                        value={presentationMotive}
-                        onChange={(e) => setPresentationMotive(e.target.value)}
-                        disabled={readOnly}
-                        rows={2}
-                        style={{ width: "100%" }}
-                    />
-                </label>
-            </div>
-
-            <div style={{ marginBottom: "12px" }}>
-                <label>
-                    Anamneza:
-                    <br />
-                    <textarea
-                        value={anamnesis}
-                        onChange={(e) => setAnamnesis(e.target.value)}
-                        disabled={readOnly}
-                        rows={3}
-                        style={{ width: "100%" }}
-                    />
-                </label>
-            </div>
-
-            <div style={{ marginBottom: "12px" }}>
-                <label>
-                    Examen clinic:
-                    <br />
-                    <textarea
-                        value={clinicalExam}
-                        onChange={(e) => setClinicalExam(e.target.value)}
-                        disabled={readOnly}
-                        rows={3}
-                        style={{ width: "100%" }}
-                    />
-                </label>
-            </div>
-
-            <div style={{ marginBottom: "12px" }}>
-                <label>
-                    Diagnostic:
-                    <br />
-                    <textarea
-                        value={diagnosis}
-                        onChange={(e) => setDiagnosis(e.target.value)}
-                        disabled={readOnly}
-                        rows={2}
-                        style={{ width: "100%" }}
-                    />
-                </label>
-            </div>
-
-            <div style={{ marginBottom: "12px" }}>
-                <label>
-                    Reteta:
-                    <br />
-                    <textarea
-                        value={prescription}
-                        onChange={(e) => setPrescription(e.target.value)}
-                        disabled={readOnly}
-                        rows={3}
-                        style={{ width: "100%" }}
-                    />
-                </label>
+            <div className="space-y-4">
+                {FIELDS.map((field) => (
+                    <div key={field.key}>
+                        <label
+                            htmlFor={`record-${field.key}`}
+                            className="mb-1 block text-sm font-semibold"
+                        >
+                            {field.label}
+                        </label>
+                        <textarea
+                            id={`record-${field.key}`}
+                            className={TEXTAREA}
+                            rows={field.rows}
+                            value={values[field.key]}
+                            onChange={(e) =>
+                                setValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                            }
+                            disabled={readOnly}
+                            // Placeholder-ul nu are ce cauta pe un camp blocat: acolo golul e un fapt
+                            // consemnat ("nu s-a scris nimic"), nu o invitatie de completare.
+                            placeholder={readOnly ? "" : field.placeholder}
+                        />
+                    </div>
+                ))}
             </div>
 
             {readOnly ? (
-                <p style={{ fontStyle: "italic", color: "#666" }}>
-                    Fisa este blocata (programare finalizata) — doar in citire.
+                <p className="mt-5 rounded-md bg-muted px-4 py-3 text-sm text-muted-foreground">
+                    {readOnlyReason ?? "Fișa este blocată — doar în citire."}
                 </p>
             ) : (
-                <div style={{ display: "flex", gap: "8px" }}>
-                    <button type="submit" disabled={saving || finalizing}>
-                        {saving ? "Se salveaza..." : "Salveaza"}
-                    </button>
+                <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
+                    <Button type="submit" disabled={saving || finalizing}>
+                        {saving ? "Se salvează..." : "Salvează"}
+                    </Button>
 
                     {/* Finalizarea traieste tot aici ca sa poata salva intai valorile curente
                         din formular, apoi sa cheme PATCH /complete (F-402). */}
                     {showFinalize && (
-                        <button
+                        <Button
                             type="button"
+                            variant="secondary"
                             disabled={saving || finalizing}
-                            onClick={() => onFinalize(currentValues())}
+                            onClick={() => onFinalize(values)}
                         >
-                            {finalizing ? "Se finalizeaza..." : "Finalizeaza consultatia"}
-                        </button>
+                            {finalizing ? "Se finalizează..." : "Finalizează consultația"}
+                        </Button>
                     )}
                 </div>
             )}
