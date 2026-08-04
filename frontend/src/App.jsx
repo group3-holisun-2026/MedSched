@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
 import PatientPage from './pages/Patient/PatientPage';
 import CalendarPage from './pages/Calendar/CalendarPage';
 import AuditLogPage from './pages/AuditLog/AuditLogPage';
@@ -33,14 +32,6 @@ function App() {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/c/:token" element={<AppointmentConfirmPage />} />
 
-                    <Route
-                        path="/dashboard"
-                        element={
-                            <PrivateRoute>
-                                <DashboardPage />
-                            </PrivateRoute>
-                        }
-                    />
                     <Route
                         path="/patients"
                         element={

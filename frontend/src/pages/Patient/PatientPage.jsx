@@ -41,7 +41,9 @@ export default function PatientPage() {
         };
     }, [accessToken, search]);
 
-    // Daca am venit din Dashboard cu un pacient de completat, deschidem formularul automat
+    // Daca s-a navigat aici cu un pacient de completat in state, deschidem formularul automat.
+    // Singurul apelant era widget-ul de pe Dashboard, pagina care a fost stearsa; mecanismul
+    // ramane, e punctul de intrare daca IncompletePatientsWidget se remonteaza altundeva.
     useEffect(() => {
         if (location.state?.editPatient) {
             setEditingPatient(location.state.editPatient);
